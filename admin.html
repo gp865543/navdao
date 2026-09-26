@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>超级管理员后台</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>" />
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #0f0c29; color: #eee; min-height: 100vh;
+}
+.login-screen {
+  display:flex; align-items:center; justify-content:center;
+  min-height:100vh; padding:20px;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+}
+.login-box {
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 40px 36px;
+  width: 100%; max-width: 400px;
+  text-align: center;
+}
+.login-box h1 { font-size: 1.6rem; margin-bottom: 6px; }
+.login-box .sub { color: rgba(255,255,255,0.45); font-size: 0.88rem; margin-bottom: 24px; }
+.login-form { display:flex; flex-direction:column; gap:12px; }
+.login-form input {
+  padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.06); color: #eee; font-size: 0.95rem; outline: none;
+  transition: border-color .2s;
+}
+.login-form input:focus { border-color: rgba(79,172,254,0.5); }
+.login-form button {
+  padding: 12px; border: none; border-radius: 12px; background: linear-gradient(135deg, #4facfe, #00f2fe);
+  color: #fff; font-size: 1rem; cursor: pointer; font-weight: 600; transition: opacity .2s;
+}
+.login-form button:hover { opacity: 0.85; }
+.err { color: #f5576c; font-size: 0.85rem; min-height: 1.2em; }
+.admin-app { display:none; }
+
+/* Topbar */
+.topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 20px; background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(12px); position:sticky; top:0; z-index:100;
+}
+.topbar-left { display:flex; align-items:center; gap:10px; }
+.topbar-left h2 { font-size:1.1rem; }
+.topbar-right { display:flex; align-items:center; gap:6px; }
+.topbar-right button {
+  padding:6px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.7);
+  cursor:pointer; font-size:0.8rem; text-decoration:none; transition:all .15s;
+}
+.topbar-right button:hover { background:rgba(255,255,255,0.1); }
+.topbar-right button.active { background:rgba(79,172,254,0.2); color:#4facfe; }
+
+/* Tabs */
+.tab-bar {
+  display:flex; gap:2px; padding:0 20px; background:rgba(0,0,0,0.15);
+  border-bottom:1px solid rgba(255,255,255,0.06);
+}
+.tab-btn {
+  padding:10px 18px; border:none; background:transparent;
+  color:rgba(255,255,255,0.4); cursor:pointer; font-size:0.85rem;
+  border-bottom:2px solid transparent; transition:all .15s;
+}
+.tab-btn:hover { color:rgba(255,255,255,0.7); }
+.tab-btn.active { color:#4facfe; border-bottom-color:#4facfe; background:rgba(79,172,254,0.05); }
+
+/* Content */
+.panel { display:none; padding:20px; }
+.panel.active { display:block; }
+
+/* User Card */
+.user-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
+.user-card {
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06);
+  border-radius:14px; padding:16px; transition:all .15s;
+  display:flex; align-items:flex-start; gap:12px;
+}
+.user-card:hover { border-color:rgba(79,172,254,0.3); }
+.uc-cb { margin-top:2px; flex-shrink:0; }
+.uc-cb input { width:16px;height:16px;cursor:pointer;accent-color:#4facfe; }
+.uc-body { flex:1; min-width:0; }
+.user-card .uc-name { font-size:1rem; font-weight:600; margin-bottom:4px; }
+.user-card .uc-info { font-size:0.78rem; color:rgba(255,255,255,0.35); margin-bottom:10px; }
+.user-card .uc-actions { display:flex; gap:6px; }
+.user-card .uc-actions button {
+  padding:5px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.6); cursor:pointer; font-size:0.75rem;
+  transition:all .15s;
+}
+.user-card .uc-actions button:hover { background:rgba(79,172,254,0.15); color:#4facfe; }
+.user-card .uc-actions button.del:hover { background:rgba(245,87,108,0.15); color:#f5576c; }
+
+/* Public Nav Editor */
+.public-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.public-header h3 { font-size:1rem; }
+.pub-cat { margin-bottom:16px; border:1px solid rgba(255,255,255,0.06); border-radius:12px; overflow:hidden; }
+.pub-cat-hd { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(255,255,255,0.03); }
+.pub-cat-hd span { font-size:0.9rem; }
+.pub-link { padding:8px 14px; border-top:1px solid rgba(255,255,255,0.04); display:flex; align-items:center; gap:8px; }
+.pub-link .pl-title { flex:1; font-size:0.85rem; }
+
+/* Modal */
+.modal-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center; padding:20px; }
+.modal-ov.active { display:flex; }
+.modal {
+  background: #1a1a2e; border-radius:18px; padding:28px 32px;
+  width:100%; max-width:520px; border:1px solid rgba(255,255,255,0.08);
+  max-height:80vh; overflow-y:auto;
+}
+.modal h3 { font-size:1.1rem; margin-bottom:16px; }
+.modal label { display:block; font-size:0.82rem; opacity:0.5; margin-bottom:4px; margin-top:12px; }
+.modal input, .modal textarea, .modal select {
+  width:100%; padding:10px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.05); color:#eee; font-size:0.9rem; outline:none;
+}
+.modal select option {
+  background: #1a1a2e; color: #eee;
+}
+.modal input:focus, .modal textarea:focus { border-color:rgba(79,172,254,0.5); }
+.modal textarea { min-height:100px; resize:vertical; }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+.modal-actions button {
+  padding:8px 18px; border-radius:10px; border:none; cursor:pointer; font-size:0.88rem;
+  transition:opacity .2s;
+}
+.modal-actions button:hover { opacity:0.85; }
+.modal-actions .btn-pri { background:linear-gradient(135deg,#4facfe,#00f2fe); color:#fff; }
+.modal-actions .btn-sec { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); }
+.modal-actions .btn-del { background:rgba(245,87,108,0.2); color:#f5576c; }
+
+/* Toast */
+.toast-c { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+.toast {
+  padding:12px 20px; border-radius:12px; background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(8px); color:#eee; font-size:0.88rem;
+  animation:ti .3s ease;
+}
+.toast.ok { border-left:3px solid #4caf50; }
+.toast.err { border-left:3px solid #f5576c; }
+@keyframes ti { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+
+.stats-bar { display:flex; gap:16px; margin-bottom:16px; }
+.stat-item { background:rgba(255,255,255,0.04); border-radius:12px; padding:14px 20px; min-width:120px; text-align:center; }
+.stat-item .sv { font-size:1.5rem; font-weight:700; color:#4facfe; }
+.stat-item .sl { font-size:0.75rem; color:rgba(255,255,255,0.35); margin-top:2px; }
+
+.empty-state { text-align:center; padding:40px 20px; color:rgba(255,255,255,0.25); }
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <h1>🛡️ 超级管理员</h1>
+    <div class="sub">请输入管理员密码登录</div>
+    <div class="login-form">
+      <input type="password" id="lp" placeholder="管理员密码" autocomplete="current-password" />
+      <div class="err" id="loginErr"></div>
+      <button id="loginBtn" onclick="doLogin()">🛡️ 登录</button>
+    </div>
+    <div style="margin-top:20px;font-size:0.82rem;">
+      <a href="index.html" style="color:rgba(255,255,255,0.35);text-decoration:none;transition:color .2s;">🏠 返回首页</a>
+    </div>
+  </div>
+</div>
+
+<div class="admin-app" id="adminApp">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h2>🛡️ 超级管理员</h2>
+    </div>
+    <div class="topbar-right">
+      <a href="index.html" target="_blank" style="padding:6px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.7);cursor:pointer;font-size:0.8rem;text-decoration:none;transition:all .15s;">🏠 首页</a>
+      <button onclick="showChangePassword()" style="color:rgba(255,255,255,0.5);">🔑 修改密码</button>
+      <button onclick="doLogout()" style="color:#f5576c;">退出</button>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tabUsers" onclick="switchTab('users')">👥 用户管理</button>
+    <button class="tab-btn" id="tabPublic" onclick="switchTab('public')">🌐 公共导航</button>
+  </div>
+
+  <div class="panel active" id="panelUsers">
+    <div class="stats-bar" id="statsBar"></div>
+    <div class="batch-bar" id="batchBar" style="display:none;margin-bottom:12px;display:flex;align-items:center;gap:10px;">
+      <label style="font-size:0.82rem;display:flex;align-items:center;gap:4px;cursor:pointer;color:rgba(255,255,255,0.5);">
+        <input type="checkbox" id="selectAllCb" onchange="toggleSelectAll(this.checked)" /> 全选
+      </label>
+      <button id="batchDelBtn" onclick="batchDeleteUsers()" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(245,87,108,0.3);background:rgba(245,87,108,0.1);color:#f5576c;cursor:pointer;font-size:0.78rem;display:none;">🗑️ 删除选中</button>
+    </div>
+    <div class="user-grid" id="userGrid"><div class="empty-state">加载中...</div></div>
+  </div>
+
+  <div class="panel" id="panelPublic">
+    <div class="public-header">
+      <h3>🌐 公共导航编辑（所有未登录用户可见）</h3>
+      <div style="display:flex;gap:6px;">
+        <button onclick="showPublicBgSettings()" style="padding:6px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.7);cursor:pointer;font-size:0.8rem;">🎨 背景</button>
+        <button onclick="savePublicDataGo()" style="padding:6px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,#4facfe,#00f2fe);color:#fff;cursor:pointer;font-size:0.8rem;font-weight:500;">💾 保存</button>
+      </div>
+    </div>
+    <div id="publicEditor"></div>
+  </div>
+</div>
+
+<div class="modal-ov" id="modalOv">
+  <div class="modal" id="modalBody"></div>
+</div>
+<div class="toast-c" id="toastCtnr"></div>
+
+<script src="js/data.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

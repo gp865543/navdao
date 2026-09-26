@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>个人导航管理</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧭</text></svg>" />
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #0f0c29;
+  color: #eee;
+  min-height: 100vh;
+}
+.login-screen {
+  display:flex; align-items:center; justify-content:center;
+  min-height:100vh; padding:20px;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+}
+.login-box {
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 40px 36px;
+  width: 100%; max-width: 400px;
+  text-align: center;
+}
+.login-box h1 { font-size: 1.6rem; margin-bottom: 6px; }
+.login-box .sub { color: rgba(255,255,255,0.45); font-size: 0.88rem; margin-bottom: 24px; }
+.login-tabs { display:flex; gap:4px; margin-bottom: 18px; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 3px; }
+.login-tab {
+  flex:1; padding:8px; border:none; border-radius:8px; cursor:pointer;
+  background:transparent; color:rgba(255,255,255,0.4); font-size:0.9rem; transition:all .2s;
+}
+.login-tab.active { background: rgba(79,172,254,0.25); color:#4facfe; }
+.login-form { display:flex; flex-direction:column; gap:12px; }
+.login-form input {
+  padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.06); color: #eee; font-size: 0.95rem; outline: none;
+  transition: border-color .2s;
+}
+.login-form input:focus { border-color: rgba(79,172,254,0.5); }
+.login-form button {
+  padding: 12px; border: none; border-radius: 12px; background: linear-gradient(135deg, #4facfe, #00f2fe);
+  color: #fff; font-size: 1rem; cursor: pointer; font-weight: 600; transition: opacity .2s;
+}
+.login-form button:hover { opacity: 0.85; }
+.msg { color: #4caf50; font-size: 0.85rem; min-height: 1.2em; }
+.err { color: #f5576c; font-size: 0.85rem; min-height: 1.2em; }
+
+/* Admin App */
+.admin-app { display:none; }
+.topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 20px; background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(12px); position:sticky; top:0; z-index:100;
+}
+.topbar-left { display:flex; align-items:center; gap:10px; }
+.topbar-left h2 { font-size:1.1rem; }
+.user-tag { padding:3px 12px; border-radius:12px; background:rgba(79,172,254,0.15); color:#4facfe; font-size:0.78rem; }
+.topbar-right { display:flex; align-items:center; gap:6px; }
+.topbar-right button, .topbar-right a {
+  padding:6px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.7);
+  cursor:pointer; font-size:0.8rem; text-decoration:none; transition:all .15s;
+}
+.topbar-right button:hover, .topbar-right a:hover { background:rgba(255,255,255,0.1); }
+.main-body { display:flex; height:calc(100vh - 54px); }
+.sidebar {
+  width:240px; flex-shrink:0;
+  border-right:1px solid rgba(255,255,255,0.06);
+  display:flex; flex-direction:column;
+}
+.sidebar-hd { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid rgba(255,255,255,0.06); }
+.sidebar-hd h3 { font-size:0.8rem; opacity:0.5; font-weight:500; }
+.sidebar-hd button { width:28px; height:28px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#4facfe; font-size:1.1rem; cursor:pointer; }
+.cat-list { flex:1; overflow-y:auto; padding:8px; }
+.cat-item {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 12px; border-radius:10px; cursor:pointer;
+  margin-bottom:3px; transition:background .15s;
+}
+.cat-item:hover { background:rgba(255,255,255,0.06); }
+.cat-item.active { background:rgba(79,172,254,0.12); }
+.cat-item .ci { font-size:1.2rem; margin-right:8px; }
+.cat-item .cn { flex:1; font-size:0.88rem; }
+.cat-item .ca { display:flex; gap:4px; opacity:0; transition:opacity .15s; }
+.cat-item:hover .ca { opacity:1; }
+.cat-item .ca button { background:none; border:none; color:rgba(255,255,255,0.35); cursor:pointer; font-size:0.8rem; padding:2px; }
+.cat-item .ca button:hover { color:#f5576c; }
+.cat-item .drag-handle { cursor:grab; font-size:0.7rem; color:rgba(255,255,255,0.2); margin-right:2px; user-select:none; transition:color .15s; }
+.cat-item:hover .drag-handle { color:rgba(255,255,255,0.4); }
+.cat-item.dragging { opacity:0.4; }
+.cat-item.drag-over { border-top:2px solid #4facfe; }
+.dedup-all { padding:6px 14px; border-radius:10px; border:none; background:linear-gradient(135deg,#f5576c,#ff6b6b); color:#fff; cursor:pointer; font-size:0.82rem; font-weight:500; }
+.dedup-all:hover { opacity:0.85; }
+.content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.content-hd { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.06); }
+.content-hd h3 { font-size:0.95rem; }
+.content-hd button {
+  padding:6px 14px; border-radius:10px; border:none;
+  background:linear-gradient(135deg,#4facfe,#00f2fe); color:#fff; cursor:pointer; font-size:0.82rem; font-weight:500;
+}
+.search-bar { padding:10px 20px; border-bottom:1px solid rgba(255,255,255,0.04); }
+.search-bar input {
+  width:100%; padding:8px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.04); color:#eee; font-size:0.85rem; outline:none; transition:border-color .2s;
+}
+.search-bar input:focus { border-color:rgba(79,172,254,0.4); }
+.search-bar input::placeholder { color:rgba(255,255,255,0.25); }
+.link-wrap { flex:1; overflow-y:auto; padding:16px 20px; display:flex; flex-wrap:wrap; gap:12px; align-content:flex-start; }
+.link-card {
+  width:calc(50% - 6px); min-width:280px;
+  padding:14px 16px; border-radius:14px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.06);
+  display:flex; align-items:center; gap:12px;
+  position:relative; transition:all .15s;
+}
+.link-card:hover { background:rgba(255,255,255,0.08); }
+.link-card .fav { width:28px; height:28px; border-radius:6px; flex-shrink:0; font-size:1.1rem; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.link-card .fav img { width:16px; height:16px; border-radius:3px; }
+.link-card .fav .fav-fb { width:100%; height:100%; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:.72rem; color:#fff; font-weight:600; }
+.link-card .ld { flex:1; min-width:0; }
+.link-card .lt { font-size:0.88rem; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.link-card .lds { font-size:0.74rem; color:rgba(255,255,255,0.35); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.link-card .la { display:flex; gap:4px; opacity:0; transition:opacity .15s; flex-shrink:0; }
+.link-card:hover .la { opacity:1; }
+.link-card .la button { background:none; border:none; color:rgba(255,255,255,0.3); cursor:pointer; font-size:0.82rem; padding:4px; border-radius:6px; }
+.link-card .la button:hover { background:rgba(255,255,255,0.08); }
+.link-card .la button.e-btn:hover { color:#f5576c; }
+.empty-state { width:100%; text-align:center; padding:60px 20px; color:rgba(255,255,255,0.25); }
+.empty-state .ei { font-size:2.5rem; margin-bottom:10px; }
+.search-group { width:100%; margin-bottom:8px; }
+.search-cat { font-size:0.8rem; color:rgba(255,255,255,0.3); padding:6px 4px 4px; display:flex; align-items:center; gap:6px; }
+
+/* Modal */
+.modal-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center; padding:20px; }
+.modal-ov.active { display:flex; }
+.modal {
+  background: #1a1a2e; border-radius:18px; padding:28px 32px;
+  width:100%; max-width:480px; border:1px solid rgba(255,255,255,0.08);
+  max-height:80vh; overflow-y:auto;
+}
+.modal h3 { font-size:1.1rem; margin-bottom:16px; }
+.modal label { display:block; font-size:0.82rem; opacity:0.5; margin-bottom:4px; margin-top:12px; }
+.modal input, .modal textarea {
+  width:100%; padding:10px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.05); color:#eee; font-size:0.9rem; outline:none;
+}
+.modal input:focus, .modal textarea:focus { border-color:rgba(79,172,254,0.5); }
+.modal textarea { min-height:60px; resize:vertical; }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+.modal-actions button {
+  padding:8px 18px; border-radius:10px; border:none; cursor:pointer; font-size:0.88rem;
+  transition:opacity .2s;
+}
+.modal-actions button:hover { opacity:0.85; }
+.modal-actions .btn-pri { background:linear-gradient(135deg,#4facfe,#00f2fe); color:#fff; }
+.modal-actions .btn-sec { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); }
+.modal-actions .btn-del { background:rgba(245,87,108,0.2); color:#f5576c; }
+
+/* Toast */
+.toast-c { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+.toast {
+  padding:12px 20px; border-radius:12px; background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(8px); color:#eee; font-size:0.88rem;
+  animation:ti .3s ease;
+}
+.toast.ok { border-left:3px solid #4caf50; }
+.toast.err { border-left:3px solid #f5576c; }
+@keyframes ti { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+
+/* Stats */
+.lc { font-size:0.78rem; color:rgba(255,255,255,0.3); }
+
+/* 动态 emoji CSS 动画 */
+@keyframes anim-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.25)} }
+@keyframes anim-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+@keyframes anim-spin { 100%{transform:rotate(360deg)} }
+@keyframes anim-flicker { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes anim-glow { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.5)} }
+@keyframes anim-shake { 0%,100%{transform:rotate(0)} 25%{transform:rotate(15deg)} 75%{transform:rotate(-15deg)} }
+@keyframes anim-wave { 0%,100%{transform:translateX(0)} 50%{transform:translateX(3px)} }
+@keyframes anim-fly { 0%{transform:translateY(0) rotate(0)} 50%{transform:translateY(-6px) rotate(10deg)} 100%{transform:translateY(0) rotate(0)} }
+@keyframes anim-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+@keyframes anim-sparkle { 0%,100%{transform:scale(1) rotate(0)} 50%{transform:scale(1.15) rotate(15deg)} }
+.anim-pulse,.anim-bounce,.anim-spin,.anim-flicker,.anim-glow,.anim-shake,.anim-wave,.anim-fly,.anim-float,.anim-sparkle { display:inline-block; }
+.anim-pulse { animation:anim-pulse 1.2s ease-in-out infinite; }
+.anim-bounce { animation:anim-bounce 0.8s ease-in-out infinite; }
+.anim-spin { animation:anim-spin 2s linear infinite; }
+.anim-flicker { animation:anim-flicker 0.8s ease-in-out infinite; }
+.anim-glow { animation:anim-glow 1s ease-in-out infinite; }
+.anim-shake { animation:anim-shake 0.5s ease-in-out infinite; }
+.anim-wave { animation:anim-wave 1.2s ease-in-out infinite; }
+.anim-fly { animation:anim-fly 1.5s ease-in-out infinite; }
+.anim-float { animation:anim-float 1.8s ease-in-out infinite; }
+.anim-sparkle { animation:anim-sparkle 0.9s ease-in-out infinite; }
+
+/* 便签 */
+.notes-wrap { padding:12px 16px; display:none; flex-direction:column; height:100%; }
+.notes-wrap.active { display:flex; }
+.notes-toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.notes-toolbar h3 { font-size:1rem; color:rgba(255,255,255,0.7); }
+.notes-toolbar .ns { font-size:0.78rem; color:rgba(255,255,255,0.3); }
+.notes-area {
+  flex:1; resize:none; width:100%; min-height:200px;
+  padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.04); color:#ddd; font-size:0.9rem; line-height:1.7;
+  outline:none; transition:border-color .2s; font-family:inherit;
+}
+.notes-area:focus { border-color:rgba(79,172,254,0.4); }
+.notes-area::placeholder { color:rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <h1>🧭 我的导航</h1>
+    <div class="sub" id="loginSub">登录或注册来管理你的导航</div>
+    <div class="login-tabs" id="loginTabs">
+      <button class="login-tab active" id="tabLogin" onclick="switchLoginTab('login')">🔑 登录</button>
+      <button class="login-tab" id="tabRegister" onclick="switchLoginTab('register')">📝 注册</button>
+    </div>
+    <div class="login-form">
+      <input type="text" id="lu" placeholder="用户名" autocomplete="username" />
+      <input type="password" id="lp" placeholder="密码" autocomplete="current-password" />
+      <input type="password" id="lp2" placeholder="确认密码" style="display:none" />
+      <div class="msg" id="loginMsg"></div>
+      <div class="err" id="loginErr"></div>
+      <button id="loginBtn" onclick="doLoginGo()">🔑 登录</button>
+    </div>
+    <div style="margin-top:20px;font-size:0.82rem;">
+      <a href="index.html" style="color:rgba(255,255,255,0.35);text-decoration:none;transition:color .2s;">🏠 返回首页</a>
+    </div>
+  </div>
+</div>
+
+<div class="admin-app" id="adminApp">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h2>🧭 我的导航</h2>
+      <span class="user-tag" id="currentUserTag"></span>
+    </div>
+    <div class="topbar-right">
+      <button onclick="showAddCat()">➕ 分类</button>
+      <button onclick="showBookmarkImport()">📥 导入</button>
+      <button onclick="exportBookmarks()">📤 导出</button>
+      <a href="index.html" target="_blank">🏠 首页</a>
+      <button onclick="doLogout()" style="color:#f5576c;">退出</button>
+      <button onclick="checkDuplicates()" style="color:#ffd93d;">🔍 查重</button>
+      <button onclick="toggleNotes()" style="color:#8be9fd;">📝 便签</button>
+      <button onclick="showUserBgSettings()" style="color:#ff8c42;">🎨 背景</button>
+    </div>
+  </div>
+  <div class="main-body">
+    <div class="sidebar">
+      <div class="sidebar-hd">
+        <h3>分类</h3>
+        <button onclick="showAddCat()" title="添加分类">+</button>
+      </div>
+      <div class="cat-list" id="catList"></div>
+    </div>
+    <div class="content">
+      <div class="content-hd">
+        <div>
+          <h3 id="curCatTitle">选择分类</h3>
+          <span class="lc" id="linkCount"></span>
+        </div>
+        <button id="addLinkBtn" onclick="showAddLink()" disabled>+ 添加链接</button>
+      </div>
+      <div class="search-bar">
+        <input id="linkSearch" type="text" placeholder="🔍 搜索链接标题、描述或网址..." oninput="doLinkSearch(this.value)" />
+      </div>
+      <div class="link-wrap" id="linkPanel">
+        <div class="empty-state"><div class="ei">📂</div><p>从左侧选择一个分类</p></div>
+      </div>
+      <div class="notes-wrap" id="notesWrap">
+        <div class="notes-toolbar">
+          <h3>📝 便签</h3>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button id="noteRefreshBtn" onclick="refreshNotes()" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.55);padding:2px 9px;border-radius:6px;cursor:pointer;font-size:0.75rem" title="从云端拉取最新便签">🔄 刷新</button>
+            <button id="noteSaveBtn" onclick="saveNotes(true)" style="background:rgba(255,138,61,0.15);border:1px solid rgba(255,138,61,0.5);color:#ff8a3d;padding:2px 9px;border-radius:6px;cursor:pointer;font-size:0.75rem" title="立即保存到云端">💾 保存</button>
+            <span class="ns" id="notesStatus"></span>
+          </div>
+        </div>
+        <textarea class="notes-area" id="notesArea" placeholder="在这里记录网站信息、备忘…&#10;&#10;内容会自动保存到云端。"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-ov" id="modalOv">
+  <div class="modal" id="modalBody"></div>
+</div>
+<div class="toast-c" id="toastCtnr"></div>
+<input type="file" id="bookmarkFileInput" accept=".html,.htm" style="display:none" />
+
+<script src="js/data.js"></script>
+<script>
+// ==================== 工具 ====================
+function esc(s) { if(!s)return ''; const d=document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML; }
+function toast(msg,type){ const c=document.getElementById('toastCtnr'); const t=document.createElement('div'); t.className='toast '+(type||'ok'); t.textContent=msg; c.appendChild(t); setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300)},2500); }
+function getFaviconUrl(url) {
+  return (typeof getCachedFaviconUrl === 'function') ? getCachedFaviconUrl(url) : '';
+}
+function getFirstChar(title) {
+  if (!title) return '🔗';
+  const c = title.trim()[0];
+  return c || '🔗';
+}
+function escapeAttr(s) { if(!s)return''; return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+let _loginTab = 'login';
+let _currentData = null;
+let _currentCategory = null;
+let _users = [];
+
+function showMsg(text) { document.getElementById('loginMsg').textContent = text || ''; }
+function showLoginErr(text) { document.getElementById('loginErr').textContent = text || ''; }
+function hideMsgs() { showMsg(''); showLoginErr(''); }
+
+function switchLoginTab(tab) {
+  hideMsgs(); _loginTab = tab;
+  document.getElementById('tabLogin').className = 'login-tab' + (tab==='login'?' active':'');
+  document.getElementById('tabRegister').className = 'login-tab' + (tab==='register'?' active':'');
+  document.getElementById('lp2').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('loginBtn').textContent = tab === 'login' ? '🔑 登录' : '📝 注册';
+  document.getElementById('loginSub').textContent = tab === 'login' ? '登录管理你的导航' : '注册新账户';
+}
+
+async function doLoginGo() {
+  hideMsgs();
+  const u = document.getElementById('lu').value.trim();
+  const p = document.getElementById('lp').value;
+  const p2 = document.getElementById('lp2').value;
+  if (!u || !p) { showLoginErr('请输入用户名和密码'); return; }
+  if (_loginTab === 'register' && p !== p2) { showLoginErr('两次密码不一致'); return; }
+  if (_loginTab === 'register' && p.length < 4) { showLoginErr('密码至少 4 位'); return; }
+
+  document.getElementById('loginBtn').disabled = true;
+  document.getElementById('loginBtn').textContent = '处理中...';
+
+  const result = await loginUser(u, p, _loginTab);
+  if (result.ok) {
+    showMsg('登录成功！');
+    _currentData = result.data;
+    setTimeout(() => enterAdmin(), 400);
+  } else {
+    if (result.error) showLoginErr(result.error);
+    else showLoginErr('操作失败');
+    document.getElementById('loginBtn').disabled = false;
+    document.getElementById('loginBtn').textContent = _loginTab === 'login' ? '🔑 登录' : '📝 注册';
+  }
+}
+
+async function enterAdmin() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminApp').style.display = 'block';
+  const uname = getCurrentUsername();
+  document.getElementById('currentUserTag').textContent = '👤 ' + uname;
+  await loadDashboard();
+}
+
+async function loadDashboard() {
+  const result = getData();
+  if (!result.ok || !result.data) {
+    toast('获取数据失败', 'err');
+    return;
+  }
+  _currentData = result.data;
+  if (!_currentData.categories) _currentData.categories = [];
+  if (!_currentData.quickTags) _currentData.quickTags = [];
+  _currentCategory = null;
+  renderCatList();
+  document.getElementById('linkSearch').value = '';
+  document.getElementById('linkPanel').innerHTML = '<div class="empty-state"><div class="ei">📂</div><p>从左侧选择一个分类</p></div>';
+  // 同步便签框内容（登录恢复/打开后台自动同步后，便签面板无需手动点开即显示云端最新）
+  const notesArea = document.getElementById('notesArea');
+  if (notesArea) notesArea.value = (_currentData.notes) || '';
+}
+
+/** 渲染图标：如果是 http 开头则显示为图片（限制 28px），否则显示为 emoji 文字；支持 data: URL 动画 SVG */
+function renderIcon(icon, size = 28) {
+  if (!icon) return '📁';
+  if (icon.startsWith('http://') || icon.startsWith('https://')) {
+    return `<img src="${encodeURI(icon)}" style="width:${size}px;height:${size}px;object-fit:contain;vertical-align:middle;border-radius:4px;" onerror="this.outerHTML='📁'" />`;
+  }
+  // 动态 emoji → 用 SVG data URL 展示动画效果
+  if (typeof isAnimatedEmoji !== 'undefined' && isAnimatedEmoji(icon)) {
+    return `<img src="${getAnimatedSvgUrl(icon, size)}" style="width:${size}px;height:${size}px;object-fit:contain;vertical-align:middle;border-radius:4px;" />`;
+  }
+  return icon;
+}
+
+function renderCatList() {
+  const list = document.getElementById('catList');
+  list.innerHTML = '';
+  if (!_currentData.categories) return;
+  _currentData.categories.forEach((cat, idx) => {
+    const d = document.createElement('div');
+    d.className = 'cat-item' + (_currentCategory === idx ? ' active' : '');
+    d.draggable = true;
+    d.dataset.idx = idx;
+    d.innerHTML = `<span class="ci drag-handle">⠿</span><span class="ci">${renderIcon(cat.icon, 28)}</span><span class="cn">${esc(cat.name)} (${(cat.links||[]).length})</span><span class="ca"><button onclick="event.stopPropagation();editCat(${idx})">✏️</button><button onclick="event.stopPropagation();delCat(${idx})">🗑️</button></span>`;
+    d.onclick = () => selectCat(idx);
+
+    // 拖拽事件
+    d.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', String(idx));
+      d.classList.add('dragging');
+    });
+    d.addEventListener('dragend', () => {
+      d.classList.remove('dragging');
+      list.querySelectorAll('.cat-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+    d.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      d.classList.add('drag-over');
+    });
+    d.addEventListener('dragleave', () => {
+      d.classList.remove('drag-over');
+    });
+    d.addEventListener('drop', (e) => {
+      e.preventDefault();
+      d.classList.remove('drag-over');
+      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      const toIdx = parseInt(d.dataset.idx, 10);
+      if (fromIdx === toIdx) return;
+      // 重新排序数组
+      const cats = _currentData.categories;
+      const [moved] = cats.splice(fromIdx, 1);
+      cats.splice(toIdx, 0, moved);
+      // 调整当前选中索引
+      if (_currentCategory === fromIdx) _currentCategory = toIdx;
+      else if (_currentCategory > fromIdx && _currentCategory <= toIdx) _currentCategory--;
+      else if (_currentCategory < fromIdx && _currentCategory >= toIdx) _currentCategory++;
+      saveAndRefresh();
+    });
+
+    list.appendChild(d);
+  });
+}
+
+function selectCat(idx) {
+  _currentCategory = idx;
+  renderCatList();
+  // 切到分类时自动关闭便签
+  const notesWrap = document.getElementById('notesWrap');
+  if (notesWrap && notesWrap.classList.contains('active')) {
+    notesWrap.classList.remove('active');
+    document.getElementById('linkPanel').style.display = '';
+    const sb = document.querySelector('.search-bar');
+    if (sb) sb.style.display = '';
+  }
+  const cat = _currentData.categories[idx];
+  document.getElementById('curCatTitle').innerHTML = `${renderIcon(cat.icon, 22)} ${esc(cat.name)}`;
+  document.getElementById('addLinkBtn').style.display = '';
+  document.getElementById('addLinkBtn').disabled = false;
+  const links = cat.links || [];
+  document.getElementById('linkCount').textContent = `共 ${links.length} 个链接`;
+  renderLinks(links);
+}
+
+function renderLinks(links) {
+  const panel = document.getElementById('linkPanel');
+  panel.innerHTML = '';
+  if (!links || links.length === 0) {
+    panel.innerHTML = '<div class="empty-state"><div class="ei">🔗</div><p>暂无链接，点击上方添加</p></div>';
+    return;
+  }
+  links.forEach((link, idx) => {
+    const card = document.createElement('div');
+    card.className = 'link-card';
+    const icon = (link.icon && !link.icon.includes('/favicon.ico')) ? link.icon : (link.url ? getFaviconUrl(link.url) : '');
+    const fallback = getFirstChar(link.title);
+    card.innerHTML = `<div class="fav">${icon ? '<img src="'+icon+'" data-fallback="'+fallback+'" onerror="this.outerHTML=\'<span class=fav-fb>\'+escapeAttr(this.getAttribute(\'data-fallback\')||\'🔗\')+\'</span>\'" />' : '<span class="fav-fb">'+fallback+'</span>'}</div><div class="ld"><div class="lt">${esc(link.title)}</div><div class="lds">${esc(link.desc || link.url || '')}</div></div><span class="la"><button onclick="editLink(${idx})">✏️</button><button class="e-btn" onclick="delLink(${idx})">🗑️</button></span>`;
+    panel.appendChild(card);
+  });
+  // 2000ms 后备：加载超时直接显示首字渐变，减少等待感
+  setTimeout(() => {
+    document.querySelectorAll('.link-card .fav img').forEach(img => {
+      if (!img.complete || img.naturalWidth === 0) {
+        const fb = img.getAttribute('data-fallback') || '🔗';
+        img.outerHTML = '<span class="fav-fb">'+fb+'</span>';
+      }
+    });
+  }, 2000);
+}
+
+// ==================== 全分类搜索 ====================
+function doLinkSearch(query) {
+  const trimmed = query.trim().toLowerCase();
+  const panel = document.getElementById('linkPanel');
+  if (!trimmed) {
+    // 清空搜索 → 回到当前分类
+    selectCat(_currentCategory);
+    return;
+  }
+  // 搜索所有分类
+  const cats = _currentData.categories || [];
+  let html = '';
+  let count = 0;
+  cats.forEach((cat, ci) => {
+    const hits = (cat.links || []).filter(link => {
+      const title = (link.title || '').toLowerCase();
+      const desc = (link.desc || '').toLowerCase();
+      const url = (link.url || '').toLowerCase();
+      return title.includes(trimmed) || desc.includes(trimmed) || url.includes(trimmed);
+    });
+    if (hits.length === 0) return;
+    count += hits.length;
+    html += '<div class="search-group"><div class="search-cat">' + renderIcon(cat.icon, 18) + ' ' + esc(cat.name || '未命名分类') + ' <span class="lc">' + hits.length + '</span></div>';
+    hits.forEach((link, i) => {
+      const idx = (cat.links || []).indexOf(link);
+      const fallback = getFirstChar(link.title);
+      const icon = (link.icon && !link.icon.includes('/favicon.ico')) ? link.icon : (link.url ? getFaviconUrl(link.url) : '');
+      html += '<div class="link-card" data-ci="' + ci + '" data-li="' + idx + '">';
+      html += '<div class="fav">' + (icon ? '<img src="' + icon + '" data-fallback="' + fallback + '" onerror="this.outerHTML=\'<span class=fav-fb>\'+escapeAttr(this.getAttribute(\'data-fallback\')||\'🔗\')+\'</span>\'" />' : '<span class="fav-fb">' + fallback + '</span>') + '</div>';
+      html += '<div class="ld"><div class="lt">' + esc(link.title) + '</div><div class="lds">' + esc(link.desc || link.url || '') + '</div></div>';
+      html += '<span class="la"><button onclick="searchEdit(' + ci + ',' + idx + ')">✏️</button><button class="e-btn" onclick="searchDel(' + ci + ',' + idx + ')">🗑️</button></span>';
+      html += '</div>';
+    });
+    html += '</div>';
+  });
+  if (count === 0) {
+    panel.innerHTML = '<div class="empty-state"><div class="ei">🔍</div><p>未找到匹配的书签</p></div>';
+  } else {
+    panel.innerHTML = html;
+    document.getElementById('curCatTitle').textContent = '🔍 搜索结果 (' + count + ')';
+    document.getElementById('linkCount').textContent = '全分类';
+    document.getElementById('addLinkBtn').style.display = 'none';
+  }
+}
+
+function searchEdit(ci, li) {
+  closeModal();
+  _currentCategory = ci;
+  selectCat(ci);
+  setTimeout(() => editLink(li), 100);
+}
+
+async function searchDel(ci, li) {
+  if (!confirm('确定删除此链接？')) return;
+  _currentData.categories[ci].links.splice(li, 1);
+  await saveAndRefresh();
+  toast('链接已删除');
+  // 重新搜索
+  const input = document.getElementById('linkSearch');
+  doLinkSearch(input.value);
+}
+
+// ==================== 分类操作 ====================
+
+/** 根据分类名称自动匹配 Emoji 图标 */
+function guessCatIcon(name) {
+  const map = [
+    [['搜','找','查','百度','谷歌','bing','google','yandex'], '🔍'],
+    [['工具','实用','工','具'], '🛠️'],
+    [['技术','编程','开发','代码','程序','github','git','开源','码','IT'], '💻'],
+    [['社交','社区','论坛','贴吧','微博','微信','qq','群','bbs','reddit'], '💬'],
+    [['视频','影视','电影','电视','b站','bilibili','youtube','抖音','快手','直播','番'], '🎬'],
+    [['音乐','音频','听歌','网易云','spotify','播客'], '🎵'],
+    [['娱乐','搞笑','趣','游戏','play','steam','玩'], '🎮'],
+    [['新闻','资讯','头条','日报','新闻'], '📰'],
+    [['购物','买','商城','电商','淘宝','京东','拼多多','亚马逊','amazon'], '🛒'],
+    [['学习','教育','课程','学','知识','大学','mooc','coursera'], '📚'],
+    [['邮箱','邮件','mail','gmail','outlook'], '📧'],
+    [['AI','人工智能','gpt','chatgpt','deepseek','ai','机器','模型'], '🤖'],
+    [['设计','图片','ps','photoshop','ui','figma','canva','绘画','美'], '🎨'],
+    [['收藏','书签','我的'], '⭐'],
+    [['阅读','读书','小说','文','书','文学'], '📖'],
+    [['网盘','云盘','云存储','onedrive','icloud','百度网盘','阿里云盘'], '☁️'],
+    [['服务器','主机','vps','部署','运维','docker','linux','nginx'], '🖥️'],
+    [['安全','密码','登录','账号','隐私'], '🔒'],
+    [['博客','文章','专栏','medium','博客园','csdn'], '✍️'],
+    [['工作','办公','文档','excel','word','ppt','wps','公司'], '📊'],
+    [['金融','银行','支付','支付宝','微信支付','理财'], '💰'],
+    [['地图','导航','出行','定位','路线'], '🗺️'],
+    [['天气','气候','温度'], '🌤️'],
+    [['生活','家居','日常'], '🏠'],
+    [['旅行','机票','酒店','旅游','航空'], '✈️'],
+    [['美食','菜谱','外卖','吃'], '🍜'],
+    [['健康','医疗','健身','运动','跑步'], '💪'],
+    [['摄影','相机','拍照','照片'], '📷'],
+    [['外语','英语','日语','翻译','语言'], '🌐'],
+    [['下载','资源','分享','torrent','磁力'], '📥'],
+    [['国家','政府','官方','中国','美国','日本'], '🏛️'],
+    [['默认','其他','一般'], '📁'],
+  ];
+  const lower = name.toLowerCase();
+  for (const [keywords, emoji] of map) {
+    for (const kw of keywords) {
+      if (lower.includes(kw.toLowerCase())) return emoji;
+    }
+  }
+  return '📁';
+}
+
+// ==================== 个人背景设置 ====================
+function showUserBgSettings() {
+  const body = document.getElementById('modalBody');
+  let currentBg = null;
+  // 优先读云端背景（渐变/纯色/视频），其次读本地（图片）
+  const cloudBg = _currentData && _currentData.background;
+  try { currentBg = JSON.parse(localStorage.getItem('nav_user_bg')); } catch {}
+  const displayBg = cloudBg || currentBg;
+  body.innerHTML = `<h3>🎨 个人背景</h3>
+    <div style="font-size:0.78rem;color:rgba(255,255,255,0.35);margin-bottom:14px;">渐变/纯色/视频存云端（所有设备同步），图片存本地</div>
+    ${cloudBg?.value ? `<div style="font-size:0.78rem;color:rgba(255,255,255,0.2);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;word-break:break-all;">当前链接：${cloudBg.value}</div>` : ''}
+    <label>类型</label>
+    <select id="mBgType" onchange="updateBgExample()">
+      <option value="">无（使用默认）</option>
+      <option value="gradient" ${displayBg?.type==='gradient'?'selected':''}>渐变</option>
+      <option value="color" ${displayBg?.type==='color'?'selected':''}>纯色</option>
+      <option value="image" ${displayBg?.type==='image'?'selected':''}>图片/上传</option>
+      <option value="video" ${displayBg?.type==='video'?'selected':''}>视频URL</option>
+    </select>
+    <div id="bgInputArea"></div>
+    <div id="bgPreview" style="margin-top:8px;width:100%;height:120px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:0.78rem;color:rgba(255,255,255,0.15);">预览区域</div>
+    <div id="overlayRow" style="display:none;margin-top:10px;">
+      <label style="font-size:0.82rem;color:rgba(255,255,255,0.4);display:flex;justify-content:space-between;">
+        <span>遮罩透明度</span>
+        <span id="overlayVal">0.5</span>
+      </label>
+      <input type="range" id="overlaySlider" min="0" max="1" step="0.05" value="0.5" style="width:100%;" oninput="updateOverlayPreview(this.value)" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="clearUserBg()">恢复默认</button>
+      <button class="btn-pri" onclick="saveUserBg()">保存</button>
+    </div>`;
+  document.getElementById('modalOv').classList.add('active');
+  updateBgExample();
+}
+
+function updateBgExample() {
+  const type = document.getElementById('mBgType').value;
+  const area = document.getElementById('bgInputArea');
+  const preview = document.getElementById('bgPreview');
+  const overlayRow = document.getElementById('overlayRow');
+  
+  // 视频和图片显示遮罩调节条
+  if (type === 'video' || type === 'image') {
+    overlayRow.style.display = 'block';
+  } else {
+    overlayRow.style.display = 'none';
+  }
+  
+  if (type === '') {
+    area.innerHTML = '';
+    preview.innerHTML = '<span style="color:rgba(255,255,255,0.15);font-size:0.78rem;">使用默认背景</span>';
+    preview.style.background = '';
+  } else if (type === 'gradient') {
+    area.innerHTML = `<textarea id="mBgVal" placeholder="linear-gradient(135deg, #0f0c29, #302b63, #24243e)" style="min-height:50px;margin-bottom:6px;">linear-gradient(135deg, #0f0c29, #302b63, #24243e)</textarea>
+      <div style="font-size:0.72rem;color:rgba(255,255,255,0.2);">示例: linear-gradient(135deg, #667eea, #764ba2)</div>`;
+    preview.style.background = document.getElementById('mBgVal')?.value || '';
+    preview.innerHTML = '';
+    setTimeout(() => {
+      const ta = document.getElementById('mBgVal');
+      if (ta) ta.oninput = () => { preview.style.background = ta.value; preview.innerHTML = ''; };
+    }, 50);
+  } else if (type === 'color') {
+    area.innerHTML = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+      <input type="color" id="mBgColor" value="#302b63" style="width:50px;height:40px;border:none;border-radius:6px;cursor:pointer;" />
+      <input id="mBgVal" placeholder="#302b63" style="flex:1;" />
+    </div>`;
+    preview.style.background = '#302b63';
+    preview.innerHTML = '';
+    setTimeout(() => {
+      const picker = document.getElementById('mBgColor');
+      const ta = document.getElementById('mBgVal');
+      if (picker && ta) {
+        picker.oninput = () => { ta.value = picker.value; preview.style.background = picker.value; preview.innerHTML = ''; };
+        ta.oninput = () => { picker.value = ta.value; preview.style.background = ta.value; preview.innerHTML = ''; };
+      }
+    }, 50);
+  } else if (type === 'image') {
+    area.innerHTML = `<div style="margin-bottom:6px;">
+      <input type="file" id="mBgFile" accept="image/*" style="font-size:0.8rem;color:rgba(255,255,255,0.5);" />
+      <div style="font-size:0.72rem;color:rgba(255,255,255,0.2);margin-top:4px;">支持 jpg/png/gif/webp，建议 ≤2MB，会自动转 base64 存本地</div>
+      <input id="mBgVal" type="hidden" />
+    </div>`;
+    preview.innerHTML = '<span style="color:rgba(255,255,255,0.15);font-size:0.78rem;">选择图片后预览</span>';
+    preview.style.background = '';
+    setTimeout(() => {
+      const fileInput = document.getElementById('mBgFile');
+      if (fileInput) fileInput.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+          toast('图片超过 2MB，请压缩后重新选择', 'err');
+          this.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          const dataUrl = ev.target.result;
+          document.getElementById('mBgVal').value = dataUrl;
+          preview.style.background = `url(${dataUrl}) center/cover no-repeat`;
+          preview.innerHTML = '';
+        };
+        reader.readAsDataURL(file);
+      };
+    }, 50);
+  } else if (type === 'video') {
+    // 从云端或本地背景数据中提取当前视频索引
+    let currentIdx = '1';
+    const cloudBg = _currentData && _currentData.background;
+    const localBg = (() => { try { return JSON.parse(localStorage.getItem('nav_user_bg')); } catch { return null; } })();
+    const displayBg = cloudBg || localBg;
+    if (displayBg && displayBg.value) {
+      const m = displayBg.value.match(/bg_(\d+)\.mp4/);
+      if (m) currentIdx = m[1];
+    }
+    let opts = '';
+    for (let i = 1; i <= 100; i++) {
+      opts += `<option value="${i}" ${currentIdx === String(i) ? 'selected' : ''}>背景 ${i}</option>`;
+    }
+    area.innerHTML = `<select id="mBgVal" style="margin-bottom:6px;">${opts}</select>
+      <div style="font-size:0.72rem;color:rgba(255,255,255,0.2);">从 100 个动态背景中选择一个，选择后自动预览</div>`;
+    preview.innerHTML = '';
+    preview.style.background = '';
+    setTimeout(() => {
+      const sel = document.getElementById('mBgVal');
+      if (sel) {
+        sel.onchange = function() {
+          const idx = this.value;
+          preview.innerHTML = `<video src="/videos/bg/bg_${idx}.mp4" autoplay loop muted style="width:100%;height:100%;object-fit:cover;" />`;
+        };
+        // 默认加载已选中的视频预览
+        if (currentIdx) {
+          preview.innerHTML = `<video src="/videos/bg/bg_${currentIdx}.mp4" autoplay loop muted style="width:100%;height:100%;object-fit:cover;" />`;
+        }
+      }
+    }, 100);
+  }
+}
+
+// 遮罩透明度预览
+function updateOverlayPreview(val) {
+  document.getElementById('overlayVal').textContent = val;
+}
+
+function saveUserBg() {
+  const type = document.getElementById('mBgType').value;
+  let val = '';
+  const el = document.getElementById('mBgVal');
+  if (el) val = el.value.trim();
+  // 读取遮罩透明度
+  const overlaySlider = document.getElementById('overlaySlider');
+  const overlay = overlaySlider ? parseFloat(overlaySlider.value) : 0.5;
+  
+  if (!type) {
+    // 恢复默认 → 清除本地 + 清除云端
+    localStorage.removeItem('nav_user_bg');
+    if (_currentData) {
+      delete _currentData.background;
+      savePersonalData(_currentData);
+    }
+    toast('已恢复默认背景');
+    closeModal();
+    return;
+  }
+  if (!val) { toast('请输入或上传背景内容', 'err'); return; }
+
+  // 图片(base64) → 存 localStorage（体积大）
+  // 渐变/纯色/视频URL → 存云端（体积小）
+  if (type === 'image') {
+    localStorage.setItem('nav_user_bg', JSON.stringify({ type, value: val, overlay }));
+    // 清除云端背景
+    if (_currentData && _currentData.background) {
+      delete _currentData.background;
+      savePersonalData(_currentData);
+    }
+    toast('个人背景已保存 ✅（本设备可见）');
+  } else {
+    // 渐变/纯色/视频 → 存云端
+    if (!_currentData) { toast('请先登录', 'err'); return; }
+    const newVer = (_currentData.bgVer || 0) + 1;
+    // 视频类型：保存视频索引号，而不是URL
+    if (type === 'video') {
+      _currentData.background = { type, value: '/videos/bg/bg_' + val + '.mp4', videoIndex: parseInt(val), ver: newVer, overlay };
+    } else {
+      _currentData.background = { type, value: val, ver: 0, overlay };
+    }
+    if (type === 'video') _currentData.bgVer = newVer;
+    savePersonalData(_currentData).then(r => {
+      if (r.ok) {
+        if (isCloudMode() && _cloudSession) {
+          _cloudSession.data = _currentData;
+          localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+        }
+        localStorage.removeItem('nav_user_bg');
+        toast('背景已保存 ✅（所有设备同步）');
+      } else {
+        toast('保存失败', 'err');
+      }
+    });
+  }
+  closeModal();
+}
+
+function clearUserBg() {
+  localStorage.removeItem('nav_user_bg');
+  toast('已恢复默认背景');
+  closeModal();
+}
+
+function showAddCat() {
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `<h3>添加分类</h3>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-bottom:6px;">实时预览</div>
+      <div id="catPreview" style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:rgba(79,172,254,0.12);font-size:0.88rem;">
+        <span id="pvIcon">📁</span>
+        <span id="pvName" style="color:rgba(255,255,255,0.4);">输入名称...</span>
+      </div>
+    </div>
+    <label>分类名称</label><input id="mCatName" placeholder="例如：搜索引擎" />
+    <label>图标（Emoji 或图片 URL）</label>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <input id="mCatIcon" placeholder="🔍 或 https://example.com/icon.png" value="📁" style="flex:1;" />
+      <button id="pickEmojiBtn" style="padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.1rem;" title="选择图标">🎯</button>
+    </div>
+    <div id="emojiGrid" style="display:none;flex-wrap:wrap;gap:4px;margin-bottom:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:10px;max-height:260px;overflow-y:auto;">
+    </div>
+    <!-- 这个注释标记 showAddCat 的 emojiGrid -->
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal()">取消</button>
+      <button class="btn-pri" onclick="confirmAddCat()">确定</button>
+    </div>`;
+  document.getElementById('modalOv').classList.add('active');
+
+  const nameInput = document.getElementById('mCatName');
+  const iconInput = document.getElementById('mCatIcon');
+
+  function updatePreview() {
+    const name = nameInput.value.trim() || '输入名称...';
+    const icon = iconInput.value.trim() || '📁';
+    document.getElementById('pvIcon').textContent = icon;
+    document.getElementById('pvName').textContent = name;
+  }
+
+  // 输入名称时自动匹配图标 + 更新预览
+  nameInput.addEventListener('input', function() {
+    const guess = guessCatIcon(this.value);
+    iconInput.value = guess;
+    updatePreview();
+  });
+  iconInput.addEventListener('input', updatePreview);
+
+  // 图标选择器 — 按主题分组，丰富多样
+  const commonEmojis = [
+    '🔍','🛠','💻','🎬','🎵','🎮','📰','🛒','📚','📧','🤖','🎨','⭐','📖','☁',
+    '🖥','🔒','✍','📊','💰','🗺','🌤','🏠','✈','🍜','💪','📷','🌐','📥','🏛',
+    '🔥','⚡','🌈','🎯','💡','🚀','🎪','📡','🎤','🎧','🎹','🎸','📺','🕹','🎲',
+    '🧩','📌','📍','🎀','🎁','🎈','🎉','🔑','📁','📂','📝','🔗','🧭','🗂','📋',
+    '📅','⏰','🔔','📞','💎','🪄','🎭','♟','🏆','🥇','🥈','🥉','🔖','🏷','🪪',
+    // 表情与手势
+    '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘',
+    '😗','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🫣','🤫','🤔','🫡',
+    '🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','😮','😯','😲','😳','🥺',
+    '😢','😭','😤','😠','😡','🤬','😈','👿','💀','☠','💩','🤡','👹','👺','👻',
+    '👽','👾','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾',
+    // 手势与身体
+    '👋','🤚','🖐','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌','🤞','🫰',
+    '🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝','👍','👎','✊','👊','🤛','🤜',
+    '👏','🙌','🫶','👐','🤲','🤝','🙏','✍','💅','🤳','💪','🦵','🦶','👂','🦻',
+    '👃','🧠','🫀','🫁','🦷','🦴','👀','👁','👅','👄',
+    // 动物
+    '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄','🐨','🐯','🦁','🐮','🐷',
+    '🐸','🐵','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴',
+    '🦄','🐝','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷','🦂','🐢',
+    '🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋',
+    '🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬',
+    '🐃','🐂','🐄','🐎','🐖','🐏','🐑','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛',
+    '🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊','🐇','🦝','🦨','🦡','🦫','🦦',
+    '🦥','🐁','🐀','🐿','🦔','🐾','🐉','🐲','🌵','🎄','🌲','🌳','🌴','🪵','🌱',
+    '🌿','☘','🍀','🎍','🪴','🎋','🍃','🍂','🍁','🪺','🪹','🍄','🐚','🪸','🪷',
+    '🌺','🌸','🌼','🌻','🌞','🌝','🌛','🌜','🌚','🌕','🌖','🌗','🌘','🌑','🌒',
+    '🌓','🌔','🌙','🌎','🌍','🌏','🪐','💫','⭐','🌟','✨','⚡','☄','💥','🔥',
+    '🌪','🌈','☀','🌤','⛅','🌥','☁','🌦','🌧','⛈','🌩','🌨','❄','☃','⛄',
+    '🌬','💨','💧','💦','🫧','☔','☂','🌊','🌫',
+    // 食物
+    '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍',
+    '🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶','🫑','🌽','🥕','🫒','🧄','🧅',
+    '🥔','🍠','🫘','🥐','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩',
+    '🍗','🍖','🦴','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗',
+    '🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘',
+    '🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬',
+    '🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','🫖','☕','🍵','🧃','🥤','🧋',
+    '🍶','🍺','🍻','🥂','🍷','🫗','🥃','🍸','🍹','🧉','🍾','🧊','🥄','🍴','🍽',
+    '🥣','🥡','🥢','🧂',
+    // 物品
+    '👓','🕶','🥽','🥼','🦺','👔','👕','👖','🧣','🧤','🧥','🧦','👗','👘','🥻',
+    '🩱','🩲','🩳','👙','👚','👛','👜','👝','🛍','🎒','🩴','👞','👟','🥾','🥿',
+    '👠','👡','🩰','👢','👑','👒','🎩','🎓','🧢','🪖','⛑','📿','💄','💍','💼',
+    '🩸','🩹','🩺','🩻','🩼','🦯','🦽','🦼',
+    // 符号
+    '❤','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣','💕','💞','💓','💗',
+    '💖','💘','💝','💟','☮','✝','☪','🕉','☸','✡','🔯','🕎','☯','☦','🛐',
+    '⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚕',
+    // 常用功能
+    '📱','💻','🖥','🖨','⌨','🖱','🖲','💽','💾','💿','📀','🧮','🎥','🎞','📽',
+    '📺','📷','📸','📹','📼','🔍','🔎','🕯','💡','🔦','🏮','🪔','📔','📕','📗',
+    '📘','📙','📚','📓','📒','📃','📜','📄','📰','🗞','📑','🔖','🏷','💰','🪙',
+    '💴','💵','💶','💷','💸','💳','🧾','✉','📧','📨','📩','📤','📥','📦','📫',
+    '📪','📬','📭','📮','🗳','✏','✒','🖋','🖊','🖌','🖍','📝','💼','📁','📂',
+    '🗂','📅','📆','🗒','🗓','📇','📈','📉','📊','📋','📌','📍','📎','🖇','📏',
+    '📐','✂','🗃','🗄','🗑','🔑','🔐','🔒','🔓','🔏','🔐','🔑',
+    // 旗帜
+    '🏳','🏴','🏁','🚩','🎌','🏴‍☠',
+    '🇨🇳','🇺🇸','🇬🇧','🇯🇵','🇰🇷','🇫🇷','🇩🇪','🇮🇹','🇪🇸','🇷🇺','🇮🇳','🇧🇷',
+    '🇦🇺','🇨🇦','🇸🇬','🇭🇰','🇹🇼','🇲🇴','🇹🇭','🇻🇳','🇲🇾','🇮🇩','🇵🇭',
+  ];
+
+  // 动态 emoji — 用 CSS 动画给字符加动效，不依赖外链
+  const animatedEmojis = [
+    ['❤ pulse','❤','pulse'],   ['💖 pulse','💖','pulse'],
+    ['🔥 flicker','🔥','flicker'], ['⭐ spin','⭐','spin'],
+    ['🌟 glow','🌟','glow'],   ['✨ sparkle','✨','sparkle'],
+    ['🎉 bounce','🎉','bounce'],  ['🎊 bounce','🎊','bounce'],
+    ['💥 shake','💥','shake'],   ['⚡ flicker','⚡','flicker'],
+    ['🌈 wave','🌈','wave'],    ['🌊 wave','🌊','wave'],
+    ['☀ spin','☀','spin'],   ['🌙 pulse','🌙','pulse'],
+    ['🚀 bounce','🚀','bounce'],  ['✈ fly','✈','fly'],
+    ['🎵 bounce','🎵','bounce'],  ['🎶 bounce','🎶','bounce'],
+    ['🔔 shake','🔔','shake'],   ['📢 shake','📢','shake'],
+    ['💡 glow','💡','glow'],    ['🔑 shake','🔑','shake'],
+    ['💎 glow','💎','glow'],    ['👻 bounce','👻','bounce'],
+    ['😎 spin','😎','spin'],    ['💩 bounce','💩','bounce'],
+    ['👍 bounce','👍','bounce'],  ['👏 bounce','👏','bounce'],
+    ['🙌 bounce','🙌','bounce'],  ['🎯 pulse','🎯','pulse'],
+    ['🗑 shake','🗑','shake'],   ['📌 pulse','📌','pulse'],
+    ['🔍 pulse','🔍','pulse'],   ['🦋 fly','🦋','fly'],
+    ['🌸 float','🌸','float'],   ['🍀 spin','🍀','spin'],
+    ['🌻 float','🌻','float'],   ['☕ pulse','☕','pulse'],
+    ['🍰 bounce','🍰','bounce'],  ['🐱 pulse','🐱','pulse'],
+    ['🐶 bounce','🐶','bounce'],  ['🐼 bounce','🐼','bounce'],
+    ['🦄 spin','🦄','spin'],     ['🍔 bounce','🍔','bounce'],
+  ];
+  const grid = document.getElementById('emojiGrid');
+  commonEmojis.forEach(emoji => {
+    const btn = document.createElement('button');
+    btn.textContent = emoji;
+    btn.style.cssText = 'width:32px;height:32px;border:none;border-radius:6px;background:rgba(255,255,255,0.06);cursor:pointer;font-size:1rem;transition:background .15s;';
+    btn.onmouseover = () => btn.style.background = 'rgba(79,172,254,0.3)';
+    btn.onmouseout = () => btn.style.background = 'rgba(255,255,255,0.06)';
+    btn.onclick = () => { iconInput.value = emoji; updatePreview(); grid.style.display = 'none'; };
+    grid.appendChild(btn);
+  });
+  // 分隔线 + 动态 emoji 区（CSS 动画版，不依赖外链）
+  const sep = document.createElement('div');
+  sep.style.cssText = 'width:100%;margin:6px 0;font-size:0.75rem;color:rgba(255,255,255,0.3);text-align:center;';
+  sep.textContent = '─ ✨ 动态 GIF ─';
+  grid.appendChild(sep);
+  animatedEmojis.forEach(([name, emoji, anim]) => {
+    const btn = document.createElement('button');
+    btn.title = name;
+    btn.textContent = emoji;
+    btn.style.cssText = 'width:32px;height:32px;border:none;border-radius:6px;background:rgba(255,255,255,0.06);cursor:pointer;font-size:1.1rem;transition:background .15s;';
+    btn.className = 'anim-' + anim;
+    btn.onmouseover = () => btn.style.background = 'rgba(79,172,254,0.3)';
+    btn.onmouseout = () => btn.style.background = 'rgba(255,255,255,0.06)';
+    btn.onclick = () => { iconInput.value = emoji; updatePreview(); grid.style.display = 'none'; };
+    grid.appendChild(btn);
+  });
+
+  document.getElementById('pickEmojiBtn').onclick = () => {
+    grid.style.display = grid.style.display === 'none' ? 'flex' : 'none';
+  };
+
+  setTimeout(() => nameInput.focus(), 100);
+}
+
+async function confirmAddCat() {
+  const name = document.getElementById('mCatName').value.trim();
+  const icon = document.getElementById('mCatIcon').value.trim() || '📁';
+  if (!name) { toast('请输入分类名称', 'err'); return; }
+  if (!_currentData.categories) _currentData.categories = [];
+  _currentData.categories.push({ name, icon, links: [] });
+  closeModal();
+  await saveAndRefresh();
+  toast('分类已添加');
+}
+
+function editCat(idx) {
+  const cat = _currentData.categories[idx];
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `<h3>编辑分类</h3>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:0.78rem;color:rgba(255,255,255,0.4);margin-bottom:6px;">实时预览</div>
+      <div id="catPreview" style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:rgba(79,172,254,0.12);font-size:0.88rem;">
+        <span id="pvIcon">📁</span>
+        <span id="pvName" style="color:rgba(255,255,255,0.4);">输入名称...</span>
+      </div>
+    </div>
+    <label>分类名称</label><input id="mCatName" value="${esc(cat.name)}" />
+    <label>图标（Emoji 或图片 URL）</label>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <input id="mCatIcon" value="${esc(cat.icon)}" style="flex:1;" />
+      <button id="pickEmojiBtn" style="padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.1rem;" title="选择图标">🎯</button>
+    </div>
+    <div id="emojiGrid" style="display:none;flex-wrap:wrap;gap:4px;margin-bottom:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:10px;max-height:260px;overflow-y:auto;">
+    </div>
+    <!-- 这个注释标记 showAddCat 的 emojiGrid -->
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal()">取消</button>
+      <button class="btn-pri" onclick="confirmEditCat(${idx})">保存</button>
+    </div>`;
+  document.getElementById('modalOv').classList.add('active');
+
+  const nameInput = document.getElementById('mCatName');
+  const iconInput = document.getElementById('mCatIcon');
+
+  function updatePreview() {
+    const name = nameInput.value.trim() || '输入名称...';
+    const icon = iconInput.value.trim() || '📁';
+    document.getElementById('pvIcon').textContent = icon;
+    document.getElementById('pvName').textContent = name;
+  }
+
+  nameInput.addEventListener('input', function() {
+    iconInput.value = guessCatIcon(this.value);
+    updatePreview();
+  });
+  iconInput.addEventListener('input', updatePreview);
+  updatePreview();
+
+  // 图标选择器 — 按主题分组，丰富多样
+  const commonEmojis = [
+    '🔍','🛠','💻','🎬','🎵','🎮','📰','🛒','📚','📧','🤖','🎨','⭐','📖','☁',
+    '🖥','🔒','✍','📊','💰','🗺','🌤','🏠','✈','🍜','💪','📷','🌐','📥','🏛',
+    '🔥','⚡','🌈','🎯','💡','🚀','🎪','📡','🎤','🎧','🎹','🎸','📺','🕹','🎲',
+    '🧩','📌','📍','🎀','🎁','🎈','🎉','🔑','📁','📂','📝','🔗','🧭','🗂','📋',
+    '📅','⏰','🔔','📞','💎','🪄','🎭','♟','🏆','🥇','🥈','🥉','🔖','🏷','🪪',
+    // 表情与手势
+    '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘',
+    '😗','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🫣','🤫','🤔','🫡',
+    '🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','😮','😯','😲','😳','🥺',
+    '😢','😭','😤','😠','😡','🤬','😈','👿','💀','☠','💩','🤡','👹','👺','👻',
+    '👽','👾','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾',
+    // 手势与身体
+    '👋','🤚','🖐','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌','🤞','🫰',
+    '🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝','👍','👎','✊','👊','🤛','🤜',
+    '👏','🙌','🫶','👐','🤲','🤝','🙏','✍','💅','🤳','💪','🦵','🦶','👂','🦻',
+    '👃','🧠','🫀','🫁','🦷','🦴','👀','👁','👅','👄',
+    // 动物
+    '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄','🐨','🐯','🦁','🐮','🐷',
+    '🐸','🐵','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴',
+    '🦄','🐝','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷','🦂','🐢',
+    '🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋',
+    '🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬',
+    '🐃','🐂','🐄','🐎','🐖','🐏','🐑','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛',
+    '🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊','🐇','🦝','🦨','🦡','🦫','🦦',
+    '🦥','🐁','🐀','🐿','🦔','🐾','🐉','🐲','🌵','🎄','🌲','🌳','🌴','🪵','🌱',
+    '🌿','☘','🍀','🎍','🪴','🎋','🍃','🍂','🍁','🪺','🪹','🍄','🐚','🪸','🪷',
+    '🌺','🌸','🌼','🌻','🌞','🌝','🌛','🌜','🌚','🌕','🌖','🌗','🌘','🌑','🌒',
+    '🌓','🌔','🌙','🌎','🌍','🌏','🪐','💫','⭐','🌟','✨','⚡','☄','💥','🔥',
+    '🌪','🌈','☀','🌤','⛅','🌥','☁','🌦','🌧','⛈','🌩','🌨','❄','☃','⛄',
+    '🌬','💨','💧','💦','🫧','☔','☂','🌊','🌫',
+    // 食物
+    '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍',
+    '🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶','🫑','🌽','🥕','🫒','🧄','🧅',
+    '🥔','🍠','🫘','🥐','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩',
+    '🍗','🍖','🦴','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗',
+    '🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘',
+    '🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬',
+    '🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','🫖','☕','🍵','🧃','🥤','🧋',
+    '🍶','🍺','🍻','🥂','🍷','🫗','🥃','🍸','🍹','🧉','🍾','🧊','🥄','🍴','🍽',
+    '🥣','🥡','🥢','🧂',
+    // 物品
+    '👓','🕶','🥽','🥼','🦺','👔','👕','👖','🧣','🧤','🧥','🧦','👗','👘','🥻',
+    '🩱','🩲','🩳','👙','👚','👛','👜','👝','🛍','🎒','🩴','👞','👟','🥾','🥿',
+    '👠','👡','🩰','👢','👑','👒','🎩','🎓','🧢','🪖','⛑','📿','💄','💍','💼',
+    '🩸','🩹','🩺','🩻','🩼','🦯','🦽','🦼',
+    // 符号
+    '❤','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣','💕','💞','💓','💗',
+    '💖','💘','💝','💟','☮','✝','☪','🕉','☸','✡','🔯','🕎','☯','☦','🛐',
+    '⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚕',
+    // 常用功能
+    '📱','💻','🖥','🖨','⌨','🖱','🖲','💽','💾','💿','📀','🧮','🎥','🎞','📽',
+    '📺','📷','📸','📹','📼','🔍','🔎','🕯','💡','🔦','🏮','🪔','📔','📕','📗',
+    '📘','📙','📚','📓','📒','📃','📜','📄','📰','🗞','📑','🔖','🏷','💰','🪙',
+    '💴','💵','💶','💷','💸','💳','🧾','✉','📧','📨','📩','📤','📥','📦','📫',
+    '📪','📬','📭','📮','🗳','✏','✒','🖋','🖊','🖌','🖍','📝','💼','📁','📂',
+    '🗂','📅','📆','🗒','🗓','📇','📈','📉','📊','📋','📌','📍','📎','🖇','📏',
+    '📐','✂','🗃','🗄','🗑','🔑','🔐','🔒','🔓','🔏','🔐','🔑',
+    // 旗帜
+    '🏳','🏴','🏁','🚩','🎌','🏴‍☠',
+    '🇨🇳','🇺🇸','🇬🇧','🇯🇵','🇰🇷','🇫🇷','🇩🇪','🇮🇹','🇪🇸','🇷🇺','🇮🇳','🇧🇷',
+    '🇦🇺','🇨🇦','🇸🇬','🇭🇰','🇹🇼','🇲🇴','🇹🇭','🇻🇳','🇲🇾','🇮🇩','🇵🇭',
+  ];
+
+  // 动态 emoji — 用 CSS 动画给字符加动效，不依赖外链
+  const animatedEmojis = [
+    ['❤ pulse','❤','pulse'],   ['💖 pulse','💖','pulse'],
+    ['🔥 flicker','🔥','flicker'], ['⭐ spin','⭐','spin'],
+    ['🌟 glow','🌟','glow'],   ['✨ sparkle','✨','sparkle'],
+    ['🎉 bounce','🎉','bounce'],  ['🎊 bounce','🎊','bounce'],
+    ['💥 shake','💥','shake'],   ['⚡ flicker','⚡','flicker'],
+    ['🌈 wave','🌈','wave'],    ['🌊 wave','🌊','wave'],
+    ['☀ spin','☀','spin'],   ['🌙 pulse','🌙','pulse'],
+    ['🚀 bounce','🚀','bounce'],  ['✈ fly','✈','fly'],
+    ['🎵 bounce','🎵','bounce'],  ['🎶 bounce','🎶','bounce'],
+    ['🔔 shake','🔔','shake'],   ['📢 shake','📢','shake'],
+    ['💡 glow','💡','glow'],    ['🔑 shake','🔑','shake'],
+    ['💎 glow','💎','glow'],    ['👻 bounce','👻','bounce'],
+    ['😎 spin','😎','spin'],    ['💩 bounce','💩','bounce'],
+    ['👍 bounce','👍','bounce'],  ['👏 bounce','👏','bounce'],
+    ['🙌 bounce','🙌','bounce'],  ['🎯 pulse','🎯','pulse'],
+    ['🗑 shake','🗑','shake'],   ['📌 pulse','📌','pulse'],
+    ['🔍 pulse','🔍','pulse'],   ['🦋 fly','🦋','fly'],
+    ['🌸 float','🌸','float'],   ['🍀 spin','🍀','spin'],
+    ['🌻 float','🌻','float'],   ['☕ pulse','☕','pulse'],
+    ['🍰 bounce','🍰','bounce'],  ['🐱 pulse','🐱','pulse'],
+    ['🐶 bounce','🐶','bounce'],  ['🐼 bounce','🐼','bounce'],
+    ['🦄 spin','🦄','spin'],     ['🍔 bounce','🍔','bounce'],
+  ];
+  const grid = document.getElementById('emojiGrid');
+  commonEmojis.forEach(emoji => {
+    const btn = document.createElement('button');
+    btn.textContent = emoji;
+    btn.style.cssText = 'width:32px;height:32px;border:none;border-radius:6px;background:rgba(255,255,255,0.06);cursor:pointer;font-size:1rem;transition:background .15s;';
+    btn.onmouseover = () => btn.style.background = 'rgba(79,172,254,0.3)';
+    btn.onmouseout = () => btn.style.background = 'rgba(255,255,255,0.06)';
+    btn.onclick = () => { iconInput.value = emoji; updatePreview(); grid.style.display = 'none'; };
+    grid.appendChild(btn);
+  });
+  // 分隔线 + 动态 emoji 区（CSS 动画版，不依赖外链）
+  const sep = document.createElement('div');
+  sep.style.cssText = 'width:100%;margin:6px 0;font-size:0.75rem;color:rgba(255,255,255,0.3);text-align:center;';
+  sep.textContent = '─ ✨ 动态 GIF ─';
+  grid.appendChild(sep);
+  animatedEmojis.forEach(([name, emoji, anim]) => {
+    const btn = document.createElement('button');
+    btn.title = name;
+    btn.textContent = emoji;
+    btn.style.cssText = 'width:32px;height:32px;border:none;border-radius:6px;background:rgba(255,255,255,0.06);cursor:pointer;font-size:1.1rem;transition:background .15s;';
+    btn.className = 'anim-' + anim;
+    btn.onmouseover = () => btn.style.background = 'rgba(79,172,254,0.3)';
+    btn.onmouseout = () => btn.style.background = 'rgba(255,255,255,0.06)';
+    btn.onclick = () => { iconInput.value = emoji; updatePreview(); grid.style.display = 'none'; };
+    grid.appendChild(btn);
+  });
+
+  document.getElementById('pickEmojiBtn').onclick = () => {
+    grid.style.display = grid.style.display === 'none' ? 'flex' : 'none';
+  };
+}
+
+async function confirmEditCat(idx) {
+  const name = document.getElementById('mCatName').value.trim();
+  if (!name) { toast('请输入分类名称', 'err'); return; }
+  _currentData.categories[idx].name = name;
+  _currentData.categories[idx].icon = document.getElementById('mCatIcon').value.trim() || '📁';
+  closeModal();
+  await saveAndRefresh();
+  toast('分类已更新');
+}
+
+async function delCat(idx) {
+  if (!confirm('确定删除分类「' + _currentData.categories[idx].name + '」？其中的链接也会被删除。')) return;
+  _currentData.categories.splice(idx, 1);
+  if (_currentCategory === idx) _currentCategory = null;
+  else if (_currentCategory > idx) _currentCategory--;
+  closeModal();
+  await saveAndRefresh();
+  toast('分类已删除');
+}
+
+// 自动补全 https:// 前缀
+function ensureUrlProtocol(url) {
+  url = url.trim();
+  if (!url) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  return 'https://' + url;
+}
+
+// ==================== 链接操作 ====================
+function showAddLink() {
+  if (_currentCategory === null) { toast('请先选择一个分类', 'err'); return; }
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `<h3>添加链接</h3>
+    <label>标题</label><input id="mLinkTitle" placeholder="链接标题" />
+    <label>网址</label><input id="mLinkUrl" placeholder="https://..." />
+    <label>描述（可选）</label><textarea id="mLinkDesc" placeholder="简短描述"></textarea>
+    <label>图标 Emoji（可选）</label><input id="mLinkIcon" placeholder="🔗" />
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal()">取消</button>
+      <button class="btn-pri" onclick="confirmAddLink()">添加</button>
+    </div>`;
+  document.getElementById('modalOv').classList.add('active');
+}
+
+async function confirmAddLink() {
+  const title = document.getElementById('mLinkTitle').value.trim();
+  const url = ensureUrlProtocol(document.getElementById('mLinkUrl').value);
+  if (!title || !url) { toast('标题和网址不能为空', 'err'); return; }
+  const cat = _currentData.categories[_currentCategory];
+  if (!cat.links) cat.links = [];
+  cat.links.push({
+    title, url,
+    desc: document.getElementById('mLinkDesc').value.trim(),
+    icon: document.getElementById('mLinkIcon').value.trim() || (url ? getFaviconUrl(url) : ''),
+  });
+  closeModal();
+  await saveAndRefresh();
+  toast('链接已添加');
+}
+
+function editLink(idx) {
+  const cat = _currentData.categories[_currentCategory];
+  const link = cat.links[idx];
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `<h3>编辑链接</h3>
+    <label>标题</label><input id="mLinkTitle" value="${esc(link.title)}" />
+    <label>网址</label><input id="mLinkUrl" value="${esc(link.url)}" />
+    <label>描述</label><textarea id="mLinkDesc">${esc(link.desc||'')}</textarea>
+    <label>图标 Emoji</label><input id="mLinkIcon" value="${esc(link.icon||'')}" />
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal()">取消</button>
+      <button class="btn-pri" onclick="confirmEditLink(${idx})">保存</button>
+    </div>`;
+  document.getElementById('modalOv').classList.add('active');
+}
+
+async function confirmEditLink(idx) {
+  const cat = _currentData.categories[_currentCategory];
+  cat.links[idx] = {
+    title: document.getElementById('mLinkTitle').value.trim(),
+    url: ensureUrlProtocol(document.getElementById('mLinkUrl').value),
+    desc: document.getElementById('mLinkDesc').value.trim(),
+    icon: document.getElementById('mLinkIcon').value.trim() || '',
+  };
+  closeModal();
+  await saveAndRefresh();
+  toast('链接已更新');
+}
+
+async function delLink(idx) {
+  if (!confirm('确定删除此链接？')) return;
+  const cat = _currentData.categories[_currentCategory];
+  cat.links.splice(idx, 1);
+  await saveAndRefresh();
+  toast('链接已删除');
+}
+
+// ==================== 导入导出 ====================
+function showBookmarkImport() {
+  document.getElementById('bookmarkFileInput').click();
+}
+
+function exportBookmarks() {
+  if (!_currentData || !_currentData.categories) { toast('暂无数据可导出', 'err'); return; }
+  let html = '<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>Bookmarks</TITLE>\n<H1>Bookmarks</H1>\n<DL><p>\n';
+  _currentData.categories.forEach(cat => {
+    if (!cat.links || cat.links.length === 0) return;
+    html += `    <DT><H3>${esc(cat.name)}</H3>\n    <DL><p>\n`;
+    cat.links.forEach(link => {
+      html += `        <DT><A HREF="${esc(link.url)}" ${link.desc ? 'DESC="'+esc(link.desc)+'"' : ''}>${esc(link.title)}</A>\n`;
+    });
+    html += '    </DL><p>\n';
+  });
+  html += '</DL><p>\n';
+  const blob = new Blob([html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'bookmarks.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('导出成功');
+}
+
+// ==================== 便签 ====================
+let _notesTimer = null;
+let _notesDirty = false;
+
+function toggleNotes() {
+  const wrap = document.getElementById('notesWrap');
+  const linkPanel = document.getElementById('linkPanel');
+  const searchBar = document.querySelector('.search-bar');
+  const addLinkBtn = document.getElementById('addLinkBtn');
+  const linkCount = document.getElementById('linkCount');
+  const curTitle = document.getElementById('curCatTitle');
+  if (wrap.classList.contains('active')) {
+    wrap.classList.remove('active');
+    linkPanel.style.display = '';
+    if (searchBar) searchBar.style.display = '';
+    addLinkBtn.style.display = '';
+    linkCount.style.display = '';
+    if (_currentCategory !== null) selectCat(_currentCategory);
+    return;
+  }
+  wrap.classList.add('active');
+  linkPanel.style.display = 'none';
+  if (searchBar) searchBar.style.display = 'none';
+  addLinkBtn.style.display = 'none';
+  linkCount.style.display = 'none';
+  curTitle.innerHTML = '📝 便签';
+  const textarea = document.getElementById('notesArea');
+  textarea.value = '';
+  loadNotes();
+  textarea.focus();
+}
+
+function loadNotes() {
+  const textarea = document.getElementById('notesArea');
+  textarea.value = (_currentData && _currentData.notes) || '';
+  document.getElementById('notesStatus').textContent = '';
+  _notesDirty = false;
+}
+
+function markNotesDirty() {
+  if (!_notesDirty) {
+    _notesDirty = true;
+    document.getElementById('notesStatus').textContent = '✏️ 未保存';
+  }
+  clearTimeout(_notesTimer);
+  _notesTimer = setTimeout(saveNotes, 1500);
+}
+
+async function saveNotes(manual) {
+  const textarea = document.getElementById('notesArea');
+  const content = textarea.value;
+  if (!_currentData) return;
+  _currentData.notes = content;
+  const result = await savePersonalData(_currentData);
+  if (result && result.ok) {
+    document.getElementById('notesStatus').textContent = manual ? '✅ 已保存到云端' : '✅ 已保存';
+    if (isCloudMode() && _cloudSession) {
+      _cloudSession.data = _currentData;
+      localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+    }
+  } else {
+    document.getElementById('notesStatus').textContent = '❌ 保存失败';
+  }
+  _notesDirty = false;
+}
+
+// 从云端拉取最新便签（多浏览器/多设备同步用）
+async function refreshNotes() {
+  const textarea = document.getElementById('notesArea');
+  const btn = document.getElementById('noteRefreshBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 刷新中'; }
+  const fresh = (typeof cloudRefreshData === 'function') ? await cloudRefreshData() : null;
+  if (fresh && textarea) {
+    if (fresh.notes !== textarea.value) {
+      textarea.value = fresh.notes || '';
+      _currentData = fresh;
+      document.getElementById('notesStatus').textContent = '✅ 已同步云端最新';
+    } else {
+      document.getElementById('notesStatus').textContent = '已是最新';
+    }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 刷新'; }
+}
+
+// 便签输入自动保存
+(function() {
+  const ta = document.getElementById('notesArea');
+  if (ta) ta.addEventListener('input', markNotesDirty);
+})();
+
+// ==================== 保存 ====================
+async function saveAndRefresh() {
+  const result = await savePersonalData(_currentData);
+  if (!result || !result.ok) {
+    toast('保存失败：' + (result?.error || '未知错误'), 'err');
+    return;
+  }
+  // 更新云 session 数据，保持同步
+  if (isCloudMode() && _cloudSession) {
+    _cloudSession.data = _currentData;
+    localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+  }
+  if (_currentCategory !== null && _currentCategory >= _currentData.categories.length) {
+    _currentCategory = null;
+  }
+  renderCatList();
+  if (_currentCategory !== null) {
+    selectCat(_currentCategory);
+  } else {
+    document.getElementById('curCatTitle').textContent = '选择分类';
+    document.getElementById('linkPanel').innerHTML = '<div class="empty-state"><div class="ei">📂</div><p>从左侧选择一个分类</p></div>';
+  }
+}
+
+// ==================== 查重去重 ====================
+function getDomain(url) {
+  if (!url) return '';
+  let u = url.trim();
+  if (!/^https?:\/\//i.test(u)) u = 'https://' + u.replace(/^\/+/, '');
+  try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); }
+  catch { return ''; }
+}
+
+function checkDuplicates() {
+  const cats = _currentData.categories;
+  if (!cats || cats.length === 0) {
+    toast('暂无数据可查重', 'err');
+    return;
+  }
+  // 全分类全局按域名分组查重
+  const map = {};
+  cats.forEach((cat, ci) => {
+    (cat.links || []).forEach((link, li) => {
+      const d = getDomain(link.url);
+      if (!d) return;
+      if (!map[d]) map[d] = [];
+      map[d].push({ ci, li, title: link.title, url: link.url, desc: link.desc || '' });
+    });
+  });
+  const dupDomains = Object.keys(map).filter(d => map[d].length >= 2);
+  if (dupDomains.length === 0) {
+    toast('✅ 未发现重复书签');
+    return;
+  }
+  // 渲染查重弹窗
+  const body = document.getElementById('modalBody');
+  let html = '<div class="dedup-wrap"><h3>🔍 发现 ' + dupDomains.length + ' 组重复书签</h3>';
+  dupDomains.forEach(d => {
+    const items = map[d];
+    html += '<div class="dedup-group"><div class="dedup-domain">🌐 ' + esc(d) + ' <span class="dedup-count">×' + items.length + '</span></div>';
+    items.forEach((it, i) => {
+      html += '<div class="dedup-item" data-ci="' + it.ci + '" data-li="' + it.li + '">';
+      html += '<div class="dedup-info"><div class="dedup-title">' + esc(it.title) + '</div><div class="dedup-url">' + esc(it.url) + '</div></div>';
+      html += '<div class="dedup-actions">';
+      html += '<button class="dedup-edit" onclick="dedupEdit(' + it.ci + ',' + it.li + ')">✏️</button>';
+      html += '<button class="dedup-del" onclick="dedupDel(' + it.ci + ',' + it.li + ')">🗑️</button>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  });
+  html += '<div class="modal-actions" style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">';
+  html += '<button class="dedup-all" onclick="dedupAll()">🗑️ 一键去重（每组保留一个）</button>';
+  html += '<button class="btn-pri" onclick="closeModal()">关闭</button></div></div>';
+  body.innerHTML = html;
+  document.getElementById('modalOv').classList.add('active');
+}
+
+function dedupEdit(ci, li) {
+  // 先切换到目标分类，再编辑
+  _currentCategory = ci;
+  selectCat(ci);
+  closeModal();
+  // 编辑该分类下第 li 个链接
+  setTimeout(() => editLink(li), 100);
+}
+
+async function dedupDel(ci, li) {
+  if (!confirm('确定删除此重复链接？')) return;
+  const link = _currentData.categories[ci].links[li];
+  _currentData.categories[ci].links.splice(li, 1);
+  await saveAndRefresh();
+  toast('链接已删除');
+  // 重新查重
+  checkDuplicates();
+}
+
+/** 一键去重：全分类全局去重，每个域名仅保留最早出现的一个，其余全部删除 */
+async function dedupAll() {
+  if (!confirm('确定一键去重？同名域名（跨分类）仅保留最早出现的那一个书签，其余全部删除。')) return;
+  const cats = _currentData.categories;
+  if (!cats || cats.length === 0) return;
+
+  // 全分类全局按域名分组
+  const map = {};
+  cats.forEach((cat, ci) => {
+    (cat.links || []).forEach((link, li) => {
+      const d = getDomain(link.url);
+      if (!d) return;
+      if (!map[d]) map[d] = [];
+      map[d].push({ ci, li });
+    });
+  });
+
+  // 收集需删除的条目（每组保留第一个即 ci 最小、li 最小的，删除其余的）
+  const toDelete = [];
+  Object.keys(map).forEach(d => {
+    const items = map[d];
+    if (items.length >= 2) {
+      // 保留 items[0]（遍历顺序即 ci 从小到大、li 从小到大），删除后续
+      for (let i = items.length - 1; i >= 1; i--) {
+        toDelete.push(items[i]);
+      }
+    }
+  });
+
+  if (toDelete.length === 0) {
+    toast('没有需要删除的重复项');
+    return;
+  }
+
+  // 按 ci 从小到大、同分类 li 从大到小排，从后往前删避免索引偏移
+  toDelete.sort((a, b) => a.ci !== b.ci ? a.ci - b.ci : b.li - a.li);
+  for (const d of toDelete) {
+    cats[d.ci].links.splice(d.li, 1);
+  }
+
+  await saveAndRefresh();
+  toast('已删除 ' + toDelete.length + ' 个重复链接（全局去重，保留最早出现的）');
+  closeModal();
+  checkDuplicates();
+}
+
+// ==================== 弹窗 ====================
+function closeModal() {
+  document.getElementById('modalOv').classList.remove('active');
+}
+
+// ==================== 登出 ====================
+function doLogout() {
+  logoutUser();
+  location.reload();
+}
+
+// ==================== 初始化 ====================
+async function init() {
+  await initDataMode();
+
+  // 已登录 → 直接进管理
+  const username = getCurrentUsername();
+  if (username) {
+    if (isCloudMode()) {
+      // 云模式：尝试重新登录恢复 session
+      // 如果 session 还在就直接进
+      if (_cloudSession.data) {
+        // 打开后台时先静默同步云端最新数据，保证多浏览器/多设备一致（失败回退本地快照）
+        const _fresh = await cloudRefreshData();
+        _currentData = _fresh || _cloudSession.data;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('adminApp').style.display = 'block';
+        document.getElementById('currentUserTag').textContent = '👤 ' + username;
+        await loadDashboard();
+        return;
+      }
+    } else {
+      // 本地模式
+      _currentData = getNavDataForUser(username);
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('adminApp').style.display = 'block';
+      document.getElementById('currentUserTag').textContent = '👤 ' + username;
+      await loadDashboard();
+      return;
+    }
+  }
+
+  // 未登录 → 显示登录界面
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('adminApp').style.display = 'none';
+}
+
+// 键盘事件 - 回车登录
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none') {
+    e.preventDefault();
+    doLoginGo();
+  }
+});
+
+// 弹窗关闭
+document.getElementById('modalOv').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// 文件导入（带用户确认去重）
+function showImportConfirm(dupCount, onSkip, onImportAll) {
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `<h3>📥 书签导入</h3>
+    <p style="margin:8px 0;line-height:1.6;">
+      检测到 <strong style="color:#ffd93d;">${dupCount}</strong> 个链接已存在<br/>
+      <span style="font-size:0.82rem;color:rgba(255,255,255,0.4);">选择「导入全部」会重复添加，可在导入后使用 🔍 查重功能去重</span>
+    </p>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal()">取消</button>
+      <button class="btn-pri" onclick="closeModal();this._importCb()" style="background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);">跳过重复</button>
+      <button class="btn-pri" onclick="closeModal();this._importCb()" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">导入全部</button>
+    </div>`;
+  const btns = body.querySelectorAll('.modal-actions .btn-pri');
+  btns[0]._importCb = onSkip;
+  btns[1]._importCb = onImportAll;
+  document.getElementById('modalOv').classList.add('active');
+}
+
+/** 实际执行导入 —— 使用预解析的数据，不再重新读取文件 */
+async function doImport(bookmarkData, forceAll) {
+  console.log(`[doImport] 开始 forceAll=${forceAll}, bookmarkData:`, JSON.parse(JSON.stringify(bookmarkData)));
+  if (!bookmarkData || bookmarkData.length === 0) return;
+  let imported = 0;
+  let skipped = 0;
+
+  // 收集已有 URL（仅从用户已有数据，不包含本次导入中新增的）
+  // 这样同一个书签文件内不同分类的链接不会互相"吃掉"
+  const existingUrls = new Set();
+  (_currentData.categories || []).forEach(cat => {
+    (cat.links || []).forEach(link => {
+      const u = (link.url || '').trim().toLowerCase().replace(/\/+$/, '');
+      if (u) existingUrls.add(u);
+    });
+  });
+  console.log(`[doImport] 已有 ${existingUrls.size} 个 URL（仅从用户已有数据）`);
+
+  bookmarkData.forEach((item, idx) => {
+    const catName = item.name;
+    const linkTags = item.links;
+    if (!catName || linkTags.length === 0) return;
+    if (!_currentData.categories) _currentData.categories = [];
+    let cat = _currentData.categories.find(c => c.name === catName);
+    if (!cat) {
+      cat = { name: catName, icon: '📁', links: [] };
+      _currentData.categories.push(cat);
+    }
+    if (!cat.links) cat.links = [];
+    let catNew = 0;
+    linkTags.forEach(a => {
+      const url = (a.url || '').trim();
+      if (!url) return;
+      const normUrl = url.toLowerCase().replace(/\/+$/, '');
+      if (!forceAll && existingUrls.has(normUrl)) {
+        skipped++;
+        return;
+      }
+      cat.links.push({ title: a.title, url, desc: a.desc || '', icon: url ? getFaviconUrl(url) : '' });
+      // 注意：这里不再将新增 URL 加入 existingUrls
+      // 这样同一个导出文件的不同分类不会互相干扰
+      imported++;
+      catNew++;
+    });
+    if (catNew > 0) console.log(`[doImport] "${catName}" 新增 ${catNew} 个链接`);
+  });
+
+  if (imported > 0) {
+    await saveAndRefresh();
+    toast(`✅ 成功导入 ${imported} 个链接${skipped > 0 ? `，跳过 ${skipped} 个重复` : ''}`);
+  } else if (skipped > 0) {
+    toast(`导入完成，${skipped} 个链接已存在（已跳过）`);
+  } else {
+    toast('未找到书签数据', 'err');
+  }
+  document.getElementById('bookmarkFileInput').value = '';
+}
+
+/**
+ * 从书签 HTML 解析出结构化数据
+ * 返回 [{ name: '分类名', links: [{ title, url, desc }] }]
+ */
+function parseBookmarkHtml(text) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/html');
+  const h3Tags = doc.querySelectorAll('DT > H3');
+  const result = [];
+  console.log(`[parseBookmarkHtml] 找到 ${h3Tags.length} 个 DT>H3`);
+  h3Tags.forEach((h3, i) => {
+    const dt = h3.parentElement;
+    const dl = dt.querySelector('DL');
+    if (!dl) { console.log(`  [${i}] "${h3.textContent.trim()}" 无 DL，跳过`); return; }
+    const linkTags = dl.querySelectorAll('DT > A');
+    if (linkTags.length === 0) { console.log(`  [${i}] "${h3.textContent.trim()}" 无 A 链接，跳过`); return; }
+    const catName = h3.textContent.trim();
+    if (!catName) { console.log(`  [${i}] 分类名为空，跳过`); return; }
+    const links = [];
+    linkTags.forEach(a => {
+      const url = (a.getAttribute('href') || '').trim();
+      if (!url) return;
+      links.push({ title: a.textContent.trim(), url, desc: a.getAttribute('DESC') || '' });
+    });
+    if (links.length === 0) { console.log(`  [${i}] "${catName}" 无有效链接，跳过`); return; }
+    console.log(`  [${i}] "${catName}" → ${links.length} 个链接`);
+    result.push({ name: catName, links });
+  });
+  console.log(`[parseBookmarkHtml] 返回 ${result.length} 个分类`, result.map(r => r.name));
+  return result;
+}
+
+document.getElementById('bookmarkFileInput')?.addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // 只解析一次，提取结构化数据
+  const text = await file.text();
+  const bookmarkData = parseBookmarkHtml(text);
+  console.log('[导入] parseBookmarkHtml 结果:', JSON.parse(JSON.stringify(bookmarkData)));
+  if (bookmarkData.length === 0) {
+    toast('未找到书签数据', 'err');
+    document.getElementById('bookmarkFileInput').value = '';
+    return;
+  }
+
+  // 统计重复
+  const existingUrls = new Set();
+  (_currentData.categories || []).forEach(cat => {
+    (cat.links || []).forEach(link => {
+      const u = (link.url || '').trim().toLowerCase().replace(/\/+$/, '');
+      if (u) existingUrls.add(u);
+    });
+  });
+
+  let dupCount = 0;
+  bookmarkData.forEach(item => {
+    (item.links || []).forEach(link => {
+      const normUrl = link.url.toLowerCase().replace(/\/+$/, '');
+      if (existingUrls.has(normUrl)) dupCount++;
+    });
+  });
+
+  if (dupCount > 0) {
+    // 让用户选择
+    showImportConfirm(dupCount,
+      () => doImport(bookmarkData, false),   // 跳过重复
+      () => doImport(bookmarkData, true)     // 导入全部
+    );
+  } else {
+    // 无重复，直接导入
+    await doImport(bookmarkData, false);
+  }
+});
+
+_initTab = 'login';
+init();
+</script>
+</body>
+</html>
