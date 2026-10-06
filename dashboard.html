@@ -793,7 +793,7 @@ function saveUserBg() {
       if (r.ok) {
         if (isCloudMode() && _cloudSession) {
           _cloudSession.data = _currentData;
-          localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+          
         }
         localStorage.removeItem('nav_user_bg');
         toast('背景已保存 ✅（所有设备同步）');
@@ -805,8 +805,15 @@ function saveUserBg() {
   closeModal();
 }
 
-function clearUserBg() {
+async function clearUserBg() {
   localStorage.removeItem('nav_user_bg');
+  if (isCloudMode()) {
+    _currentData.background = { type: 'gradient', value: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' };
+    const result = await savePersonalData(_currentData);
+    if (!result || !result.ok) { toast(result?.error || '恢复默认背景失败', 'err'); return; }
+  } else {
+    saveUserBg(getCurrentUsername(), _currentData.background);
+  }
   toast('已恢复默认背景');
   closeModal();
 }
@@ -1335,7 +1342,7 @@ async function saveNotes(manual) {
     document.getElementById('notesStatus').textContent = manual ? '✅ 已保存到云端' : '✅ 已保存';
     if (isCloudMode() && _cloudSession) {
       _cloudSession.data = _currentData;
-      localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+      
     }
   } else {
     document.getElementById('notesStatus').textContent = '❌ 保存失败';
@@ -1377,7 +1384,7 @@ async function saveAndRefresh() {
   // 更新云 session 数据，保持同步
   if (isCloudMode() && _cloudSession) {
     _cloudSession.data = _currentData;
-    localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+    
   }
   if (_currentCategory !== null && _currentCategory >= _currentData.categories.length) {
     _currentCategory = null;
