@@ -210,8 +210,8 @@ export default {
     // =============================================
     if (path === '/api/public' && request.method === 'PUT') {
       try {
-        const { password, data } = await request.json();
-        if (!password || !data) return json({ ok: false, error: '缺少参数' }, 400);
+        const { data } = await request.json();
+        if (!data) return json({ ok: false, error: '缺少数据' }, 400);
         if (!await requireAdmin(env, request)) return json({ ok: false, error: '管理员未登录' }, 401);
         await env.NAV_KV.put('nav:public', JSON.stringify(data));
         return json({ ok: true });
@@ -230,7 +230,8 @@ export default {
         if (!password) return json({ ok: false, error: '缺少密码' }, 400);
         const ok = await verifyAdminPassword(env, password);
         if (!ok) return json({ ok: false, error: '管理员密码错误' });
-        return json({ ok: true });
+        const token = await createSession(env, 'admin', 'admin');
+        return withCookie(json({ ok: true }), sessionCookie(token));
       } catch (e) {
         return json({ ok: false, error: e.message }, 500);
       }
@@ -242,7 +243,6 @@ export default {
     // =============================================
     if (path === '/api/admin/users' && request.method === 'GET') {
       try {
-        const password = url.searchParams.get('password');
         if (!await requireAdmin(env, request)) return json({ ok: false, error: '管理员未登录' }, 401);
         const users = await getUsersList(env);
         // 排除 admin 自身
