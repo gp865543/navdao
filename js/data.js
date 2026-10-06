@@ -227,7 +227,7 @@ async function adminLogin(password) {
 
 async function adminGetUsers(password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/users`);
+    const res = await fetch(`${API_BASE}/admin/users`, { headers: { 'X-Admin-Password': password } });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -236,7 +236,7 @@ async function adminGetUsers(password) {
 
 async function adminGetUserData(username, password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`);
+    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, { headers: { 'X-Admin-Password': password } });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -247,8 +247,8 @@ async function adminUpdateUserData(username, password, data) {
   try {
     const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, data }),
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+      body: JSON.stringify({ data }),
     });
     return await res.json();
   } catch (e) {
@@ -258,8 +258,9 @@ async function adminUpdateUserData(username, password, data) {
 
 async function adminDeleteUser(username, password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}?password=${encodeURIComponent(password)}`, {
+    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, {
       method: 'DELETE',
+      headers: { 'X-Admin-Password': password },
     });
     return await res.json();
   } catch (e) {
