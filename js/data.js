@@ -112,8 +112,7 @@ function getDefaultNavData() {
 async function cloudLogin(username, password) {
   const result = await apiCall('POST', { username, password });
   if (result.ok) {
-    _cloudSession = { username, data: result.data, isAdmin: !!result.isAdmin, _pass: password };
-    localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+    _cloudSession = { username, data: result.data, isAdmin: !!result.isAdmin };
   }
   return result;
 }
