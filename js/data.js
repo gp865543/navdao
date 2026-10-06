@@ -38,7 +38,9 @@ async function checkCloudMode() {
   }
   // 如果是云模式，尝试恢复 session
   if (_isCloud) {
-    const saved = localStorage.getItem('_cloudSession');
+    const saved = sessionStorage.getItem('_cloudSession');
+    sessionStorage.removeItem('_cloudSession');
+  localStorage.removeItem('_cloudSession');
     if (saved) {
       try {
         _cloudSession = JSON.parse(saved);
@@ -119,7 +121,7 @@ async function cloudLogin(username, password) {
   const result = await apiCall('POST', { username, password });
   if (result.ok) {
     _cloudSession = { username, data: result.data, isAdmin: !!result.isAdmin, _pass: password };
-    localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+    sessionStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
   }
   return result;
 }
@@ -225,7 +227,7 @@ async function adminLogin(password) {
 
 async function adminGetUsers(password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/users?password=${encodeURIComponent(password)}`);
+    const res = await fetch(`${API_BASE}/admin/users`, { headers: { 'X-Admin-Password': password } });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -234,7 +236,7 @@ async function adminGetUsers(password) {
 
 async function adminGetUserData(username, password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}?password=${encodeURIComponent(password)}`);
+    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, { headers: { 'X-Admin-Password': password } });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -245,8 +247,8 @@ async function adminUpdateUserData(username, password, data) {
   try {
     const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, data }),
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+      body: JSON.stringify({ data }),
     });
     return await res.json();
   } catch (e) {
@@ -256,8 +258,9 @@ async function adminUpdateUserData(username, password, data) {
 
 async function adminDeleteUser(username, password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}?password=${encodeURIComponent(password)}`, {
+    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, {
       method: 'DELETE',
+      headers: { 'X-Admin-Password': password },
     });
     return await res.json();
   } catch (e) {

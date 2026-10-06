@@ -253,7 +253,7 @@ export default {
     // =============================================
     if (path === '/api/admin/users' && request.method === 'GET') {
       try {
-        const password = url.searchParams.get('password');
+        const password = request.headers.get('X-Admin-Password') || '';
         if (!await verifyAdmin(env, password)) {
           return json({ ok: false, error: '管理员密码错误' });
         }
@@ -274,7 +274,7 @@ export default {
     if (userMatch && request.method === 'GET') {
       try {
         const targetUser = decodeURIComponent(userMatch[1]);
-        const password = url.searchParams.get('password');
+        const password = request.headers.get('X-Admin-Password') || '';
         if (!await verifyAdmin(env, password)) {
           return json({ ok: false, error: '管理员密码错误' });
         }
@@ -294,7 +294,8 @@ export default {
       try {
         const targetUser = decodeURIComponent(userMatch[1]);
         const body = await request.json();
-        if (!await verifyAdmin(env, body.password)) {
+        const password = request.headers.get('X-Admin-Password') || '';
+        if (!await verifyAdmin(env, password)) {
           return json({ ok: false, error: '管理员密码错误' });
         }
         if (!body.data) return json({ ok: false, error: '缺少数据' }, 400);
@@ -316,7 +317,7 @@ export default {
     if (userMatch && request.method === 'DELETE') {
       try {
         const targetUser = decodeURIComponent(userMatch[1]);
-        const password = url.searchParams.get('password');
+        const password = request.headers.get('X-Admin-Password') || '';
         if (!await verifyAdmin(env, password)) {
           return json({ ok: false, error: '管理员密码错误' });
         }
