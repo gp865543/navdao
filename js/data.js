@@ -174,7 +174,8 @@ async function savePublicDataCloud(password, data) {
     const res = await fetch(`${API_BASE}/public`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, data }),
+      credentials: 'include',
+      body: JSON.stringify({ data }),
     });
     if (res.ok) {
       const result = await res.json();
@@ -211,7 +212,7 @@ async function adminLogin(password) {
 
 async function adminGetUsers(password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/users?password=${encodeURIComponent(password)}`);
+    const res = await fetch(`${API_BASE}/admin/users`, { credentials: 'include' });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -220,7 +221,7 @@ async function adminGetUsers(password) {
 
 async function adminGetUserData(username, password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}?password=${encodeURIComponent(password)}`);
+    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, { credentials: 'include' });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -232,7 +233,8 @@ async function adminUpdateUserData(username, password, data) {
     const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, data }),
+      credentials: 'include',
+      body: JSON.stringify({ data }),
     });
     return await res.json();
   } catch (e) {
@@ -242,9 +244,7 @@ async function adminUpdateUserData(username, password, data) {
 
 async function adminDeleteUser(username, password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}?password=${encodeURIComponent(password)}`, {
-      method: 'DELETE',
-    });
+    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, { method: 'DELETE', credentials: 'include' });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -351,7 +351,8 @@ async function changeAdminPass(oldPass, newPass) {
       const res = await fetch(`${API_BASE}/admin/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oldPass, newPass }),
+        credentials: 'include',
+        body: JSON.stringify({ newPass }),
       });
       return await res.json();
     } catch (e) {
