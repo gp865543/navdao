@@ -8,16 +8,6 @@ let _users = [];
 let _publicData = null;
 
 // ==================== 管理员登录 ====================
-const ADMIN_SESSION_KEY = 'nav_admin_session';
-
-/** 恢复或保存管理员 session */
-function saveAdminSession(pwd) {
-  if (pwd) localStorage.setItem(ADMIN_SESSION_KEY, pwd);
-}
-function clearAdminSession() {
-  localStorage.removeItem(ADMIN_SESSION_KEY);
-}
-
 async function doLogin() {
   const pwd = document.getElementById('lp').value;
   if (!pwd) { document.getElementById('loginErr').textContent = '请输入密码'; return; }
@@ -26,8 +16,7 @@ async function doLogin() {
 
   const result = await adminLogin(pwd);
   if (result.ok) {
-    _adminPassword = pwd;
-    saveAdminSession(pwd);
+    _adminPassword = 'session';
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminApp').style.display = 'block';
     await loadUsers();
@@ -485,9 +474,9 @@ function closeModal() {
 }
 
 // ==================== 登出 ====================
-function doLogout() {
+async function doLogout() {
+  try { await fetch('/api/logout', { method: 'POST', credentials: 'include' }); } catch {}
   _adminPassword = '';
-  clearAdminSession();
   document.getElementById('adminApp').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('lp').value = '';
@@ -513,22 +502,6 @@ async function init() {
   if (!isCloudMode()) {
     document.getElementById('loginScreen').innerHTML = '<div class="login-box"><h1>⚠️</h1><div class="sub">超级管理员后台仅支持云端模式<br/>请部署到 Cloudflare Pages 使用</div></div>';
     return;
-  }
-  // 尝试恢复上次登录的 session
-  const saved = localStorage.getItem(ADMIN_SESSION_KEY);
-  if (saved) {
-    const result = await adminLogin(saved);
-    if (result.ok) {
-      _adminPassword = saved;
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('adminApp').style.display = 'block';
-      await loadUsers();
-      await loadPublicData();
-      return;
-    } else {
-      // 密码已失效 → 清除 session
-      clearAdminSession();
-    }
   }
   document.getElementById('loginScreen').style.display = 'flex';
 }
