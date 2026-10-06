@@ -9,14 +9,25 @@
  *   绑定变量名: NAV_KV
  */
 
-// -------------------- 密码哈希 --------------------
-async function hashPassword(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// -------------------- 密码与会话安全 --------------------
+const PASSWORD_ITERATIONS = 600000;
+const SESSION_TTL = 60 * 60 * 24 * 7;
+function bytesToHex(bytes){return Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('');}
+function hexToBytes(hex){const out=new Uint8Array(hex.length/2);for(let i=0;i<out.length;i++)out[i]=parseInt(hex.slice(i*2,i*2+2),16);return out;}
+function randomHex(size=16){const b=new Uint8Array(size);crypto.getRandomValues(b);return bytesToHex(b);}
+async function pbkdf2Hash(password,saltHex,iterations=PASSWORD_ITERATIONS){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:hexToBytes(saltHex),iterations,hash:'SHA-256'},key,256);return bytesToHex(new Uint8Array(bits));}
+async function hashPassword(password){const salt=randomHex(16);return JSON.stringify({v:2,algo:'PBKDF2-SHA256',iterations:PASSWORD_ITERATIONS,salt,hash:await pbkdf2Hash(password,salt)});}
+async function verifyPassword(password,stored){try{const r=JSON.parse(stored);if(r&&r.v===2&&r.salt&&r.hash)return (await pbkdf2Hash(password,r.salt,r.iterations||PASSWORD_ITERATIONS))===r.hash;}catch{}const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(password));return bytesToHex(new Uint8Array(d))===stored;}
+async function upgradePasswordIfLegacy(env,key,password,stored){if(stored&&stored.length===64&&/^[0-9a-f]+$/i.test(stored))await env.NAV_KV.put(key,await hashPassword(password));}
+function getCookie(request,name){const p=name+'=';const v=(request.headers.get('Cookie')||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(p));return v?decodeURIComponent(v.slice(p.length)):'';}
+async function getSession(env,request){const t=getCookie(request,'nav_session');if(!t)return null;const raw=await env.NAV_KV.get('nav:session:'+t,'text');if(!raw)return null;try{return{token:t,...JSON.parse(raw)}}catch{return null}}
+async function createSession(env,username,role='user'){const token=randomHex(32);await env.NAV_KV.put('nav:session:'+token,JSON.stringify({username,role,createdAt:Date.now()}),{expirationTtl:SESSION_TTL});return token;}
+async function destroySession(env,request){const t=getCookie(request,'nav_session');if(t)await env.NAV_KV.delete('nav:session:'+t);}
+function sessionCookie(token){return 'nav_session='+encodeURIComponent(token)+'; Max-Age='+SESSION_TTL+'; Path=/; HttpOnly; Secure; SameSite=Lax';}
+function clearSessionCookie(){return 'nav_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax';}
+function withCookie(response,cookie){const h=new Headers(response.headers);h.append('Set-Cookie',cookie);return new Response(response.body,{status:response.status,headers:h});}
+async function verifyAdminPassword(env,password){if(!password)return false;const key='nav:pass:admin';const stored=await env.NAV_KV.get(key,'text');if(!stored){await env.NAV_KV.put(key,await hashPassword(password));return true;}const ok=await verifyPassword(password,stored);if(ok)await upgradePasswordIfLegacy(env,key,password,stored);return ok;}
+async function requireAdmin(env,request){const s=await getSession(env,request);return s&&s.role==='admin'?s:null;}
 
 // -------------------- 默认导航数据 --------------------
 const DEFAULT_NAV_DATA = {
@@ -76,7 +87,8 @@ async function removeUserFromList(env, username) {
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Password',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Credentials': 'true',
 };
 
 function json(data, status = 200) {
@@ -84,20 +96,6 @@ function json(data, status = 200) {
     status,
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
-}
-
-// -------------------- 验证管理员密码 --------------------
-async function verifyAdmin(env, password) {
-  if (!password) return false;
-  const adminHash = await env.NAV_KV.get('nav:pass:admin', 'text');
-  if (!adminHash) {
-    // 首次：以此密码设为管理员密码
-    const newHash = await hashPassword(password);
-    await env.NAV_KV.put('nav:pass:admin', newHash);
-    return true;
-  }
-  const inputHash = await hashPassword(password);
-  return inputHash === adminHash;
 }
 
 // -------------------- 路由 --------------------
@@ -109,6 +107,20 @@ export default {
     // OPTIONS 预检
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: CORS });
+    }
+
+    // =============================================
+    // API: 获取当前登录用户数据
+    // GET /api/@me
+    // =============================================
+    if (path === '/api/@me' && request.method === 'GET') {
+      try {
+        const session = await getSession(env, request);
+        if (!session) return json({ ok: false, error: '未登录' }, 401);
+        const raw = await env.NAV_KV.get('nav:user:' + session.username, 'text');
+        if (!raw) return json({ ok: false, error: '用户不存在' }, 404);
+        return json({ ok: true, data: JSON.parse(raw), username: session.username, isAdmin: session.role === 'admin' });
+      } catch (e) { return json({ ok: false, error: e.message }, 500); }
     }
 
     // =============================================
@@ -128,24 +140,19 @@ export default {
 
         if (storedHash) {
           // 已有用户：验证密码
-          const inputHash = await hashPassword(password);
-          if (inputHash !== storedHash) {
-            return json({ ok: false, error: '密码错误' });
-          }
+          if (!await verifyPassword(password, storedHash)) return json({ ok: false, error: '密码错误' });
+          await upgradePasswordIfLegacy(env, passKey, password, storedHash);
           const data = existingData ? JSON.parse(existingData) : DEFAULT_NAV_DATA;
-          return json({ ok: true, data, isAdmin: username === 'admin' });
+          const token = await createSession(env, username, username === 'admin' ? 'admin' : 'user');
+          return withCookie(json({ ok: true, data, isAdmin: username === 'admin' }), sessionCookie(token));
         } else {
           // 新用户：创建
           const passwordHash = await hashPassword(password);
           await env.NAV_KV.put(passKey, passwordHash);
           await env.NAV_KV.put(userKey, JSON.stringify(DEFAULT_NAV_DATA));
           await addUserToList(env, username);
-          return json({
-            ok: true,
-            data: JSON.parse(JSON.stringify(DEFAULT_NAV_DATA)),
-            isNew: true,
-            isAdmin: username === 'admin',
-          });
+          const token = await createSession(env, username, username === 'admin' ? 'admin' : 'user');
+          return withCookie(json({ ok: true, data: JSON.parse(JSON.stringify(DEFAULT_NAV_DATA)), isNew: true, isAdmin: username === 'admin' }), sessionCookie(token));
         }
       } catch (e) {
         return json({ ok: false, error: e.message }, 500);
@@ -158,22 +165,13 @@ export default {
     // =============================================
     if (path === '/api/@me' && request.method === 'PUT') {
       try {
-        const { username, password, data } = await request.json();
-        if (!username || !password || !data) {
-          return json({ ok: false, error: '缺少参数' }, 400);
-        }
-        const passKey = `nav:pass:${username}`;
-        const storedHash = await env.NAV_KV.get(passKey, 'text');
-        if (!storedHash) return json({ ok: false, error: '用户不存在' }, 404);
-
-        const inputHash = await hashPassword(password);
-        if (inputHash !== storedHash) return json({ ok: false, error: '密码错误' });
-
-        await env.NAV_KV.put(`nav:user:${username}`, JSON.stringify(data));
+        const { data } = await request.json();
+        const session = await getSession(env, request);
+        if (!session) return json({ ok: false, error: '未登录' }, 401);
+        if (!data) return json({ ok: false, error: '缺少数据' }, 400);
+        await env.NAV_KV.put('nav:user:' + session.username, JSON.stringify(data));
         return json({ ok: true });
-      } catch (e) {
-        return json({ ok: false, error: e.message }, 500);
-      }
+      } catch (e) { return json({ ok: false, error: e.message }, 500); }
     }
 
     // =============================================
@@ -182,21 +180,14 @@ export default {
     // =============================================
     if (path === '/api/@me' && request.method === 'DELETE') {
       try {
-        const { username, password } = await request.json();
-        if (!username || !password) return json({ ok: false, error: '缺少参数' }, 400);
-        const passKey = `nav:pass:${username}`;
-        const storedHash = await env.NAV_KV.get(passKey, 'text');
-        if (!storedHash) return json({ ok: false, error: '用户不存在' }, 404);
-        const inputHash = await hashPassword(password);
-        if (inputHash !== storedHash) return json({ ok: false, error: '密码错误' });
-
-        await env.NAV_KV.delete(`nav:user:${username}`);
-        await env.NAV_KV.delete(passKey);
-        await removeUserFromList(env, username);
-        return json({ ok: true });
-      } catch (e) {
-        return json({ ok: false, error: e.message }, 500);
-      }
+        const session = await getSession(env, request);
+        if (!session) return json({ ok: false, error: '未登录' }, 401);
+        await env.NAV_KV.delete('nav:user:' + session.username);
+        await env.NAV_KV.delete('nav:pass:' + session.username);
+        await env.NAV_KV.delete('nav:session:' + session.token);
+        await removeUserFromList(env, session.username);
+        return withCookie(json({ ok: true }), clearSessionCookie());
+      } catch (e) { return json({ ok: false, error: e.message }, 500); }
     }
 
     // =============================================
@@ -221,9 +212,7 @@ export default {
       try {
         const { password, data } = await request.json();
         if (!password || !data) return json({ ok: false, error: '缺少参数' }, 400);
-        if (!await verifyAdmin(env, password)) {
-          return json({ ok: false, error: '管理员密码错误' });
-        }
+        if (!await requireAdmin(env, request)) return json({ ok: false, error: '管理员未登录' }, 401);
         await env.NAV_KV.put('nav:public', JSON.stringify(data));
         return json({ ok: true });
       } catch (e) {
@@ -239,7 +228,7 @@ export default {
       try {
         const { password } = await request.json();
         if (!password) return json({ ok: false, error: '缺少密码' }, 400);
-        const ok = await verifyAdmin(env, password);
+        const ok = await verifyAdminPassword(env, password);
         if (!ok) return json({ ok: false, error: '管理员密码错误' });
         return json({ ok: true });
       } catch (e) {
@@ -254,9 +243,7 @@ export default {
     if (path === '/api/admin/users' && request.method === 'GET') {
       try {
         const password = url.searchParams.get('password');
-        if (!await verifyAdmin(env, password)) {
-          return json({ ok: false, error: '管理员密码错误' });
-        }
+        if (!await requireAdmin(env, request)) return json({ ok: false, error: '管理员未登录' }, 401);
         const users = await getUsersList(env);
         // 排除 admin 自身
         const normalUsers = users.filter(u => u !== 'admin');
@@ -275,9 +262,7 @@ export default {
       try {
         const targetUser = decodeURIComponent(userMatch[1]);
         const password = url.searchParams.get('password');
-        if (!await verifyAdmin(env, password)) {
-          return json({ ok: false, error: '管理员密码错误' });
-        }
+        if (!await requireAdmin(env, request)) return json({ ok: false, error: '管理员未登录' }, 401);
         const data = await env.NAV_KV.get(`nav:user:${targetUser}`, 'text');
         if (!data) return json({ ok: false, error: '用户不存在' }, 404);
         return json({ ok: true, data: JSON.parse(data) });
@@ -294,9 +279,7 @@ export default {
       try {
         const targetUser = decodeURIComponent(userMatch[1]);
         const body = await request.json();
-        if (!await verifyAdmin(env, body.password)) {
-          return json({ ok: false, error: '管理员密码错误' });
-        }
+        if (!await requireAdmin(env, request)) return json({ ok: false, error: '管理员未登录' }, 401);
         if (!body.data) return json({ ok: false, error: '缺少数据' }, 400);
         // 检查用户是否存在
         const passKey = `nav:pass:${targetUser}`;
@@ -317,9 +300,7 @@ export default {
       try {
         const targetUser = decodeURIComponent(userMatch[1]);
         const password = url.searchParams.get('password');
-        if (!await verifyAdmin(env, password)) {
-          return json({ ok: false, error: '管理员密码错误' });
-        }
+        if (!await requireAdmin(env, request)) return json({ ok: false, error: '管理员未登录' }, 401);
         if (targetUser === 'admin') return json({ ok: false, error: '不能删除管理员账户' }, 400);
         // 无论数据是否存在，直接删除所有相关 KV 键并移除用户列表
         const userKey = `nav:user:${targetUser}`;
@@ -335,6 +316,15 @@ export default {
       } catch (e) {
         return json({ ok: false, error: e.message }, 500);
       }
+    }
+
+    // =============================================
+    // API: 登出
+    // POST /api/logout
+    // =============================================
+    if (path === '/api/logout' && request.method === 'POST') {
+      await destroySession(env, request);
+      return withCookie(json({ ok: true }), clearSessionCookie());
     }
 
     // =============================================
@@ -362,14 +352,13 @@ export default {
     // =============================================
     if (path === '/api/admin/password' && request.method === 'PUT') {
       try {
-        const { oldPass, newPass } = await request.json();
-        if (!oldPass || !newPass) return json({ ok: false, error: '缺少参数' }, 400);
-        if (!await verifyAdmin(env, oldPass)) {
-          return json({ ok: false, error: '原密码错误' });
-        }
-        const newHash = await hashPassword(newPass);
-        await env.NAV_KV.put('nav:pass:admin', newHash);
-        return json({ ok: true });
+        const session = await requireAdmin(env, request);
+        if (!session) return json({ ok: false, error: '管理员未登录' }, 401);
+        const { newPass } = await request.json();
+        if (!newPass || newPass.length < 8) return json({ ok: false, error: '新密码至少 8 位' }, 400);
+        await env.NAV_KV.put('nav:pass:admin', await hashPassword(newPass));
+        await env.NAV_KV.delete('nav:session:' + session.token);
+        return withCookie(json({ ok: true }), clearSessionCookie());
       } catch (e) {
         return json({ ok: false, error: e.message }, 500);
       }
