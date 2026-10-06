@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "navdao",
+  "pages_build_output_dir": ".",
+  "compatibility_date": "2026-06-27",
+  "compatibility_flags": [],
+  "kv_namespaces": [
+    {
+      "binding": "NAV_KV",
+      "id": "94a62f9643504dda8d925f8ca88b97c2"
+    }
+  ],
+  "env": {
+    "preview": {
+      "kv_namespaces": [
+        {
+          "binding": "NAV_KV",
+          "id": "0bbcb7e025ac4bc69cc615210db931bf"
+        }
+      ]
+    }
+  }
+}
