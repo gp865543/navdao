@@ -15,7 +15,8 @@ async function apiCall(method, body) {
     const res = await fetch(`${API_BASE}/@me`, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      credentials: 'include',
+      body: JSON.stringify(body || {}),
     });
     return await res.json();
   } catch (e) {
@@ -38,14 +39,7 @@ async function checkCloudMode() {
   }
   // 如果是云模式，尝试恢复 session
   if (_isCloud) {
-    const saved = localStorage.getItem('_cloudSession');
-    if (saved) {
-      try {
-        _cloudSession = JSON.parse(saved);
-      } catch {}
-    }
-  }
-  return _isCloud;
+    return _isCloud;
 }
 
 // ==================== 本地模式（localStorage）====================
@@ -118,8 +112,7 @@ function getDefaultNavData() {
 async function cloudLogin(username, password) {
   const result = await apiCall('POST', { username, password });
   if (result.ok) {
-    _cloudSession = { username, data: result.data, isAdmin: !!result.isAdmin, _pass: password };
-    localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+    _cloudSession = { username, data: result.data, isAdmin: !!result.isAdmin };
   }
   return result;
 }
@@ -130,22 +123,14 @@ function cloudGetData() {
 
 async function cloudSaveData(data) {
   if (!_cloudSession.username) return { ok: false, error: '未登录' };
-  const pwd = _cloudSession._pass || '';
-  if (!pwd) return { ok: false, error: '密码丢失，请重新登录' };
-  return await apiCall('PUT', {
-    username: _cloudSession.username,
-    password: pwd,
-    data,
-  });
+  return await apiCall('PUT', { data });
 }
 
-async function cloudDeleteUser(username, password) {
-  return await apiCall('DELETE', { username, password });
-}
+async function cloudDeleteUser() { return await apiCall('DELETE', {}); }
 
-function cloudLogout() {
+async function cloudLogout() {
+  try { await fetch(API_BASE + '/logout', { method: 'POST', credentials: 'include' }); } catch {}
   _cloudSession = { username: '', data: null, isAdmin: false };
-  localStorage.removeItem('_cloudSession');
 }
 
 // ==================== 公共导航（云）====================
@@ -188,7 +173,8 @@ async function savePublicDataCloud(password, data) {
     const res = await fetch(`${API_BASE}/public`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, data }),
+      credentials: 'include',
+      body: JSON.stringify({ data }),
     });
     if (res.ok) {
       const result = await res.json();
@@ -225,7 +211,7 @@ async function adminLogin(password) {
 
 async function adminGetUsers(password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/users?password=${encodeURIComponent(password)}`);
+    const res = await fetch(`${API_BASE}/admin/users`, { credentials: 'include' });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -234,7 +220,7 @@ async function adminGetUsers(password) {
 
 async function adminGetUserData(username, password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}?password=${encodeURIComponent(password)}`);
+    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, { credentials: 'include' });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -246,7 +232,8 @@ async function adminUpdateUserData(username, password, data) {
     const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, data }),
+      credentials: 'include',
+      body: JSON.stringify({ data }),
     });
     return await res.json();
   } catch (e) {
@@ -256,9 +243,7 @@ async function adminUpdateUserData(username, password, data) {
 
 async function adminDeleteUser(username, password) {
   try {
-    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}?password=${encodeURIComponent(password)}`, {
-      method: 'DELETE',
-    });
+    const res = await fetch(`${API_BASE}/admin/user/${encodeURIComponent(username)}`, { method: 'DELETE', credentials: 'include' });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -365,7 +350,8 @@ async function changeAdminPass(oldPass, newPass) {
       const res = await fetch(`${API_BASE}/admin/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oldPass, newPass }),
+        credentials: 'include',
+        body: JSON.stringify({ newPass }),
       });
       return await res.json();
     } catch (e) {
@@ -517,21 +503,16 @@ function getAnimatedSvgUrl(emoji, size) {
  * @returns {object|null} 云端的最新数据；无登录态或网络失败时返回 null
  */
 async function cloudRefreshData() {
-  if (!isCloudMode() || !_cloudSession) return null;
+  if (!isCloudMode()) return null;
   try {
-    const res = await fetch(API_BASE + '/@me', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: _cloudSession.username, password: _cloudSession._pass })
-    });
+    const res = await fetch(API_BASE + '/@me', { credentials: 'include' });
     const json = await res.json();
     if (json.ok && json.data) {
-      _cloudSession.data = json.data; // 同步本地会话快照，下次打开直接用新的
-      localStorage.setItem('_cloudSession', JSON.stringify(_cloudSession));
+      _cloudSession.data = json.data;
+      _cloudSession.username = json.username || _cloudSession.username;
+      _cloudSession.isAdmin = !!json.isAdmin;
       return json.data;
     }
-  } catch (e) {
-    console.warn('cloudRefreshData 失败，沿用本地数据:', e.message);
-  }
+  } catch (e) { console.warn('cloudRefreshData 失败:', e.message); }
   return null;
 }
