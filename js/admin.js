@@ -12,9 +12,10 @@ const ADMIN_SESSION_KEY = 'nav_admin_session';
 
 /** 恢复或保存管理员 session */
 function saveAdminSession(pwd) {
-  if (pwd) localStorage.setItem(ADMIN_SESSION_KEY, pwd);
+  if (pwd) sessionStorage.setItem(ADMIN_SESSION_KEY, pwd);
 }
 function clearAdminSession() {
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
   localStorage.removeItem(ADMIN_SESSION_KEY);
 }
 
@@ -515,7 +516,8 @@ async function init() {
     return;
   }
   // 尝试恢复上次登录的 session
-  const saved = localStorage.getItem(ADMIN_SESSION_KEY);
+  localStorage.removeItem(ADMIN_SESSION_KEY);
+  const saved = sessionStorage.getItem(ADMIN_SESSION_KEY);
   if (saved) {
     const result = await adminLogin(saved);
     if (result.ok) {
